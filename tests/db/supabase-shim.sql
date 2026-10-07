@@ -1,10 +1,20 @@
 -- Emula lo mínimo de Supabase para correr las migraciones en un PostgreSQL limpio
 -- (CI y desarrollo local). En Supabase real este archivo NO se aplica.
-do $$ begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then create role anon nologin; end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then create role authenticated nologin; end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
+-- Cada archivo de pruebas crea su propia base, pero los roles son del servidor:
+-- se toleran creaciones simultáneas.
+do $$
+declare r text;
+begin
+  foreach r in array array['anon', 'authenticated', 'service_role'] loop
+    begin
+      if not exists (select 1 from pg_roles where rolname = r) then
+        execute format('create role %I nologin', r);
+      end if;
+    exception when duplicate_object or unique_violation then null;
+    end;
+  end loop;
 end $$;
+alter role service_role bypassrls;
 
 create schema if not exists auth;
 grant usage on schema auth to anon, authenticated;

@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run tests/unit",
-    "test:db": "vitest run tests/db"
+    "test:db": "vitest run tests/db --no-file-parallelism"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
