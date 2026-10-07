@@ -1,3 +1,52 @@
 # PH PRO
 
 Administración de propiedad horizontal en Colombia (Ley 675 de 2001).
+Regla de la casa: **la IA propone, la administración decide**.
+
+## Qué hay en este momento (Sprint 1)
+
+- Ingreso con correo y contraseña, recuperación por correo y verificación en dos pasos con aplicación autenticadora.
+- Cierre de sesión tras 30 minutos sin actividad.
+- Organizaciones administradoras y copropiedades (PH PRO Central), con el aviso
+  "Trabajando actualmente en: NOMBRE DE LA COPROPIEDAD" al entrar a una de ellas.
+- Aislamiento por fila (RLS) en PostgreSQL: cada persona solo ve las organizaciones y copropiedades a las que pertenece.
+- Bitácora inmutable de cambios.
+- Pruebas automáticas de fuga entre organizaciones y copropiedades en cada cambio (`tests/db`).
+
+## Tecnología
+
+- Next.js 16 con React y TypeScript.
+- Supabase: PostgreSQL con RLS y autenticación gestionada.
+- Vitest para pruebas; GitHub Actions corre estilo, tipos, pruebas y compilación.
+
+## Puesta en marcha
+
+1. Crea un proyecto en [Supabase](https://supabase.com) (región São Paulo, la más cercana a Colombia).
+2. En el editor SQL del proyecto, ejecuta los archivos de `supabase/migrations/` en orden
+   (o usa `supabase db push` con la CLI de Supabase).
+3. En Authentication:
+   - URL Configuration: agrega `https://TU-DOMINIO/auth/confirmar` a las URL de redirección.
+   - Desactiva el registro abierto (Sign ups). Las cuentas se crean desde Authentication > Users > Invite user.
+   - Activa MFA con TOTP.
+4. Copia `.env.example` como `.env.local` y completa la URL y la llave publicable del proyecto.
+5. `npm install` y `npm run dev`. La aplicación queda en http://localhost:3000.
+
+La primera persona que ingresa crea su organización; quien la crea queda como propietaria.
+
+## Pruebas
+
+```bash
+npm test          # pruebas unitarias
+npm run test:db   # aislamiento entre copropiedades; necesita PostgreSQL 16 en DATABASE_URL
+```
+
+`tests/db` aplica las migraciones sobre una base nueva con un pequeño emulador del esquema `auth`
+de Supabase (`tests/db/supabase-shim.sql`) y comprueba, como usuarios reales, que nadie puede leer
+ni escribir datos de otra organización o de una copropiedad que no tiene asignada.
+También falla si alguien crea una tabla sin RLS.
+
+## Reglas para nuevas tablas
+
+- Toda tabla con datos de una copropiedad lleva `copropiedad_id`, RLS activo y políticas que usen
+  `app.puede_ver_copropiedad()` o `app.es_admin_org()`.
+- Agrega sus casos a `tests/db/aislamiento.test.ts` antes de construir pantallas.
