@@ -1,9 +1,10 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
-import { usuarioActual } from '@/lib/datos'
+import { esAdministrador, misOrganizaciones, usuarioActual } from '@/lib/datos'
 
 export default async function LayoutPrivado({ children }: { children: React.ReactNode }) {
   const { usuario } = await usuarioActual()
+  const admin = (await misOrganizaciones()).some(esAdministrador)
   return (
     <div className="app">
       <aside className="lateral">
@@ -13,6 +14,7 @@ export default async function LayoutPrivado({ children }: { children: React.Reac
         </Link>
         <nav className="menu" aria-label="Principal">
           <Link href="/central">Central</Link>
+          {admin && <Link href="/central/equipo">Equipo</Link>}
           <Link href="/seguridad">Seguridad</Link>
         </nav>
         <div className="usuario">

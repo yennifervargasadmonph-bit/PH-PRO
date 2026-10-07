@@ -96,3 +96,31 @@ details.panel[open] summary { margin-bottom: 14px; }
   .usuario { margin: 0 0 0 auto; }
   .contenido { padding: 20px 16px; }
 }
+
+/* Pestañas de la copropiedad */
+.pestanas { display: flex; gap: 4px; border-bottom: 1px solid var(--borde); margin-bottom: 20px; overflow-x: auto; }
+.pestanas a { padding: 10px 14px; text-decoration: none; color: var(--tenue); font-weight: 600; border-bottom: 3px solid transparent; white-space: nowrap; }
+.pestanas a:hover { color: var(--verde-700); }
+.pestanas a[aria-current='page'] { color: var(--verde-700); border-bottom-color: var(--verde-600); }
+
+/* Tablas */
+.tabla-caja { overflow-x: auto; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); }
+table.tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.tabla th, .tabla td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+.tabla th { background: #f6f8f7; color: var(--tenue); font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+.tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tabla tr.inactiva td { color: var(--tenue); }
+.tabla tr:last-child td { border-bottom: 0; }
+.cifras { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 18px; }
+.cifra { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 14px 16px; }
+.cifra span { display: block; color: var(--tenue); font-size: .8rem; }
+.cifra strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.cifra.alerta { border-color: #f1c27d; background: #fffaf0; }
+.cifra.bien { border-color: #b7dcc4; background: #f3faf5; }
+.etiqueta.nueva { background: #e6f0ff; color: #1d4ed8; }
+.etiqueta.actualizada { background: #fff4e0; color: #8a5a00; }
+.etiqueta.rechazada { background: var(--error-fondo); color: var(--error); }
+.boton.pequeno { padding: 6px 10px; font-size: .85rem; }
+.zona-archivo { border: 2px dashed var(--borde); border-radius: var(--radio); padding: 28px; text-align: center; background: #fafbfa; display: grid; gap: 8px; justify-items: center; }
+.muestra-marca { border-radius: var(--radio); padding: 20px; color: #fff; display: grid; gap: 6px; }
+input[type='color'] { padding: 2px; height: 42px; }

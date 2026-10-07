@@ -29,7 +29,7 @@ beforeAll(async () => {
   copro.ajena = await crear(u.otraOrg, org.b, 'Copropiedad ajena', 'AJ')
 
   await como(db, u.admin, `insert into miembros_organizacion (organizacion_id, usuario_id, rol) values ($1, $2, 'miembro')`, [org.a, u.asistente])
-  await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, 'asistente')`, [copro.alamos, u.asistente])
+  await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, 'auxiliar')`, [copro.alamos, u.asistente])
 }, 60_000)
 
 afterAll(async () => {
