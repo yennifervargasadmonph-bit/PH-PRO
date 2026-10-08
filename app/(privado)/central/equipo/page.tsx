@@ -27,16 +27,16 @@ export default async function Equipo() {
     <>
       <div className="cabecera"><div><h1>Equipo</h1><p className="tenue">Quién trabaja en {org.nombre} y en qué copropiedades.</p></div></div>
       <div className="tabla-caja">
-        <table className="tabla">
+        <table className="tabla tarjetas-movil">
           <thead><tr><th>Persona</th><th>Rol en la organización</th><th>Accesos por copropiedad</th></tr></thead>
           <tbody>
             {personas.map((p) => {
               const suyos = (accesos ?? []).filter((a) => a.usuario_id === p.id && nombreCopro.has(a.copropiedad_id))
               return (
                 <tr key={p.id}>
-                  <td><strong>{p.nombre}</strong><br /><span className="tenue pequeno">{p.correo}</span></td>
-                  <td>{ROL_ORG[p.rol]}</td>
-                  <td style={{ whiteSpace: 'normal' }}>
+                  <td data-titulo><strong>{p.nombre}</strong><br /><span className="tenue pequeno">{p.correo}</span></td>
+                  <td data-label="Rol">{ROL_ORG[p.rol]}</td>
+                  <td data-label="Accesos" style={{ whiteSpace: 'normal' }}>
                     {p.rol !== 'miembro' && <span className="tenue">Todas</span>}
                     {suyos.map((a) => (
                       <form key={a.copropiedad_id} action={quitarAcceso.bind(null, a.copropiedad_id, p.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: '2px 8px 2px 0' }}>
@@ -52,7 +52,7 @@ export default async function Equipo() {
           </tbody>
         </table>
       </div>
-      <div className="rejilla seccion" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+      <div className="rejilla seccion" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))' }}>
         <section className="panel"><h2>Agregar persona</h2><FormularioMiembro organizacionId={org.id} /></section>
         <section className="panel">
           <h2>Asignar acceso a una copropiedad</h2>

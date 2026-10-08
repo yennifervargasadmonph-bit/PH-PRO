@@ -69,7 +69,7 @@ export default async function Unidades({ params, searchParams }: { params: Promi
         <p className="panel tenue">{todas.length === 0 ? 'Todavía no hay unidades. Agrégalas abajo o impórtalas desde Excel.' : 'Ninguna unidad coincide con la búsqueda.'}</p>
       ) : (
         <div className="tabla-caja">
-          <table className="tabla">
+          <table className="tabla tarjetas-movil">
             <thead>
               <tr>
                 <th>Unidad</th><th>Tipo</th><th className="num">Coeficiente %</th>
@@ -80,13 +80,13 @@ export default async function Unidades({ params, searchParams }: { params: Promi
             <tbody>
               {lista.map((u) => (
                 <tr key={u.id} className={u.activa ? '' : 'inactiva'}>
-                  <td><strong>{nombreUnidad(u)}</strong></td>
-                  <td>{TIPOS_UNIDAD[u.tipo]}</td>
-                  <td className="num">{fmt(u.coeficiente)}</td>
-                  {verDetalle && <><td className="num">{fmt(u.area_m2, 2)}</td><td>{u.matricula_inmobiliaria || '—'}</td></>}
-                  <td><span className={u.activa ? 'etiqueta' : 'etiqueta gris'}>{u.activa ? 'Activa' : 'Inactiva'}</span></td>
+                  <td data-titulo><strong>{nombreUnidad(u)}</strong></td>
+                  <td data-label="Tipo">{TIPOS_UNIDAD[u.tipo]}</td>
+                  <td className="num" data-label="Coeficiente %">{fmt(u.coeficiente)}</td>
+                  {verDetalle && <><td className="num" data-label="Área m²">{fmt(u.area_m2, 2)}</td><td data-label="Matrícula">{u.matricula_inmobiliaria || '—'}</td></>}
+                  <td data-label="Estado"><span className={u.activa ? 'etiqueta' : 'etiqueta gris'}>{u.activa ? 'Activa' : 'Inactiva'}</span></td>
                   {editarPermiso && (
-                    <td style={{ display: 'flex', gap: 6 }}>
+                    <td className="acciones">
                       <Link className="boton secundario pequeno" href={`/c/${id}/unidades?editar=${u.id}`}>Editar</Link>
                       {puede(permisos, 'unidades', 'I') && (
                         <form action={cambiarEstadoUnidad.bind(null, id, u.id, !u.activa)}>

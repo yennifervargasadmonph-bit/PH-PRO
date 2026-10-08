@@ -17,7 +17,7 @@ export function FormularioMarca({ copropiedadId, nombre, marca, editable }: { co
   const cambiar = (k: keyof Marca) => (e: React.ChangeEvent<HTMLInputElement>) => setM({ ...m, [k]: e.target.value })
 
   return (
-    <div className="rejilla" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+    <div className="rejilla" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))' }}>
       <form className="panel campos" action={accion}>
         <fieldset disabled={!editable} style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 14 }}>
           <div className="fila">

@@ -162,20 +162,20 @@ export function Importador({ copropiedadId, existentes, puedeAprobar }: { coprop
                 )}
                 {revision.clasificadas.length > 0 && (
                   <div className="tabla-caja" style={{ maxHeight: 420, overflowY: 'auto' }}>
-                    <table className="tabla">
+                    <table className="tabla tarjetas-movil">
                       <thead><tr><th>Fila</th><th>Unidad</th><th>Tipo</th><th className="num">Coeficiente %</th><th className="num">Área m²</th><th>Resultado</th></tr></thead>
                       <tbody>
                         {revision.clasificadas.map((c) => (
                           <tr key={c.fila}>
-                            <td>{c.fila}</td>
-                            <td><strong>{nombreUnidad(c)}</strong></td>
-                            <td>{TIPOS_UNIDAD[c.tipo]}</td>
-                            <td className="num">
+                            <td data-label="Fila">{c.fila}</td>
+                            <td data-titulo><strong>{nombreUnidad(c)}</strong></td>
+                            <td data-label="Tipo">{TIPOS_UNIDAD[c.tipo]}</td>
+                            <td className="num" data-label="Coeficiente %">
                               {c.estado === 'actualizada' && c.anterior && Number(c.anterior.coeficiente) !== c.coeficiente && <span className="tenue">{fmt(Number(c.anterior.coeficiente))} → </span>}
                               {fmt(c.coeficiente)}
                             </td>
-                            <td className="num">{fmt(c.area_m2)}</td>
-                            <td><span className={`etiqueta ${c.estado === 'nueva' ? 'nueva' : c.estado === 'actualizada' ? 'actualizada' : 'gris'}`}>{c.estado === 'nueva' ? 'Nueva' : c.estado === 'actualizada' ? 'Se actualiza' : 'Sin cambios'}</span></td>
+                            <td className="num" data-label="Área m²">{fmt(c.area_m2)}</td>
+                            <td data-label="Resultado"><span className={`etiqueta ${c.estado === 'nueva' ? 'nueva' : c.estado === 'actualizada' ? 'actualizada' : 'gris'}`}>{c.estado === 'nueva' ? 'Nueva' : c.estado === 'actualizada' ? 'Se actualiza' : 'Sin cambios'}</span></td>
                           </tr>
                         ))}
                       </tbody>

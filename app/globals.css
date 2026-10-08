@@ -89,12 +89,26 @@ details.panel summary { cursor: pointer; font-weight: 600; }
 details.panel[open] summary { margin-bottom: 14px; }
 .qr { background: #fff; padding: 8px; border: 1px solid var(--borde); border-radius: 10px; width: 200px; height: 200px; }
 
+.barra-movil { display: none; }
+
 @media (max-width: 820px) {
-  .app { grid-template-columns: 1fr; }
-  .lateral { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px 16px; gap: 12px; }
-  .menu { display: flex; flex-wrap: wrap; }
-  .usuario { margin: 0 0 0 auto; }
-  .contenido { padding: 20px 16px; }
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .lateral { position: sticky; top: 0; z-index: 20; flex-direction: row; align-items: center; padding: 10px 16px; gap: 12px; }
+  .lateral .menu, .lateral .usuario { display: none; }
+  .contenido { padding: 16px 16px calc(84px + env(safe-area-inset-bottom)); }
+  .trabajando { position: sticky; top: 58px; z-index: 15; padding: 8px 14px; font-size: .85rem; flex-wrap: nowrap; }
+  .trabajando .prefijo { display: none; }
+  .trabajando > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  h1 { font-size: 1.35rem; }
+  .barra-movil { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; background: var(--superficie); border-top: 1px solid var(--borde); padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); justify-content: space-around; box-shadow: 0 -4px 16px rgba(12, 59, 38, .08); }
+  .barra-movil a, .barra-movil button { flex: 1; min-height: 52px; display: grid; justify-items: center; align-content: center; gap: 2px; font: inherit; font-size: .72rem; font-weight: 600; color: var(--tenue); text-decoration: none; background: none; border: 0; border-radius: 10px; cursor: pointer; }
+  .barra-movil form { flex: 1; display: flex; }
+  .barra-movil a[aria-current='page'] { color: var(--verde-700); background: var(--verde-100); }
+  /* Controles cómodos para los dedos */
+  input, select, .boton { min-height: 44px; }
+  .boton.pequeno { min-height: 40px; }
+  .pestanas a { min-height: 44px; display: inline-flex; align-items: center; }
+  .acceso-caja { padding: 24px 18px; }
 }
 
 /* Pestañas de la copropiedad */
@@ -111,6 +125,7 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .tabla td.num, .tabla th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .tabla tr.inactiva td { color: var(--tenue); }
 .tabla tr:last-child td { border-bottom: 0; }
+.tabla td.acciones { display: flex; gap: 6px; }
 .cifras { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 18px; }
 .cifra { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 14px 16px; }
 .cifra span { display: block; color: var(--tenue); font-size: .8rem; }
@@ -124,3 +139,20 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .zona-archivo { border: 2px dashed var(--borde); border-radius: var(--radio); padding: 28px; text-align: center; background: #fafbfa; display: grid; gap: 8px; justify-items: center; }
 .muestra-marca { border-radius: var(--radio); padding: 20px; color: #fff; display: grid; gap: 6px; }
 input[type='color'] { padding: 2px; height: 42px; }
+
+@media (max-width: 640px) {
+  /* Tablas que se leen como tarjetas en el celular */
+  .tabla-caja:has(.tarjetas-movil) { border: 0; background: none; overflow: visible; }
+  .tabla.tarjetas-movil thead { display: none; }
+  .tabla.tarjetas-movil, .tabla.tarjetas-movil tbody, .tabla.tarjetas-movil tr, .tabla.tarjetas-movil td { display: block; width: 100%; }
+  .tabla.tarjetas-movil tr { background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio); padding: 12px 14px; margin-bottom: 10px; }
+  .tabla.tarjetas-movil td { border: 0; padding: 3px 0; white-space: normal; text-align: left; }
+  .tabla.tarjetas-movil td.num { text-align: left; }
+  .tabla.tarjetas-movil td[data-label] { display: flex; justify-content: space-between; gap: 12px; }
+  .tabla.tarjetas-movil td[data-label]::before { content: attr(data-label); color: var(--tenue); font-weight: 400; }
+  .tabla.tarjetas-movil td[data-titulo] { font-size: 1rem; padding-bottom: 6px; }
+  .tabla.tarjetas-movil td.acciones { display: flex; gap: 8px; padding-top: 10px; }
+  .tabla.tarjetas-movil td.acciones > * { flex: 1; }
+  .tabla.tarjetas-movil td.acciones .boton { width: 100%; }
+  .tabla.tarjetas-movil tr:last-child td { border-bottom: 0; }
+}

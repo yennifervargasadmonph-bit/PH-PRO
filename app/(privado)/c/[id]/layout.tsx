@@ -19,7 +19,7 @@ export default async function LayoutCopropiedad({ children, params }: { children
   return (
     <>
       <div className="trabajando" role="status">
-        <span>Trabajando actualmente en: <strong>{c.nombre.toUpperCase()}</strong></span>
+        <span><span className="prefijo">Trabajando actualmente en: </span><strong>{c.nombre.toUpperCase()}</strong></span>
         <Link href="/central">Cambiar</Link>
       </div>
       <MenuCopropiedad enlaces={enlaces.map(({ href, texto }) => ({ href, texto }))} />

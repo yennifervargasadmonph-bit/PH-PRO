@@ -1,6 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
 import { esAdministrador, misOrganizaciones, usuarioActual } from '@/lib/datos'
+import { BarraMovil } from './barra-movil'
 
 export default async function LayoutPrivado({ children }: { children: React.ReactNode }) {
   const { usuario } = await usuarioActual()
@@ -23,6 +24,7 @@ export default async function LayoutPrivado({ children }: { children: React.Reac
         </div>
       </aside>
       <main className="contenido">{children}</main>
+      <BarraMovil admin={admin} />
     </div>
   )
 }
