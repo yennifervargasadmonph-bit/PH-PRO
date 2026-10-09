@@ -13,7 +13,7 @@ export default async function LayoutCopropiedad({ children, params }: { children
     { href: `/c/${id}`, texto: 'Resumen', ver: true },
     { href: `/c/${id}/unidades`, texto: 'Unidades', ver: puede(permisos, 'unidades', 'V') },
     { href: `/c/${id}/importar`, texto: 'Importar', ver: puede(permisos, 'importar', 'V') },
-    { href: `/c/${id}/marca`, texto: 'Marca', ver: puede(permisos, 'perfil', 'V') },
+    { href: `/c/${id}/marca`, texto: 'Identidad', ver: puede(permisos, 'perfil', 'V') },
   ].filter((e) => e.ver)
 
   return (

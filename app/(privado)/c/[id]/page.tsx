@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { leerCopropiedad, misPermisos, puede, usuarioActual } from '@/lib/datos'
+import { faltantesIdentidad, formatearNit, listarEnEspanol } from '@/lib/identidad'
+import { obtenerIdentidad } from '@/lib/identidad-servidor'
 import { TIPOS_COPROPIEDAD } from '@/lib/validacion'
 
 export const metadata = { title: 'Copropiedad' }
@@ -22,6 +24,8 @@ export default async function PaginaCopropiedad({ params }: { params: Promise<{ 
   const { data: resumen } = verUnidades ? await supabase.rpc('resumen_coeficientes', { p_copro: id }).single<{ unidades: number; suma: string }>() : { data: null }
   const suma = Number(resumen?.suma ?? 0)
   const cuadra = Math.abs(suma - 100) < 0.0005
+  const identidad = puede(permisos, 'perfil', 'V') ? await obtenerIdentidad(id) : null
+  const faltan = identidad ? faltantesIdentidad(identidad) : []
 
   return (
     <>
@@ -31,6 +35,13 @@ export default async function PaginaCopropiedad({ params }: { params: Promise<{ 
           <h1>{c.nombre}</h1>
         </div>
       </div>
+
+      {faltan.length > 0 && (
+        <div className="aviso info seccion-aviso" role="status">
+          <strong>Completa la identidad del edificio:</strong> falta {listarEnEspanol(faltan)}. Los documentos se pueden generar, pero lo que falte aparecerá como «Dato faltante».{' '}
+          {puede(permisos, 'perfil', 'E') ? <Link href={`/c/${id}/marca`}>Completar ahora</Link> : 'La administración debe completarla.'}
+        </div>
+      )}
 
       {verUnidades && resumen && (
         <div className="cifras">
@@ -47,7 +58,8 @@ export default async function PaginaCopropiedad({ params }: { params: Promise<{ 
         <section className="tarjeta">
           <h3>Datos básicos</h3>
           <dl className="datos">
-            <dt>NIT</dt><dd>{c.nit ?? '—'}</dd>
+            {identidad?.nombreLegal && <><dt>Nombre completo</dt><dd>{identidad.nombreLegal}</dd></>}
+            <dt>NIT</dt><dd>{c.nit ? formatearNit(c.nit) : '—'}</dd>
             <dt>Ciudad</dt><dd>{c.ciudad || '—'}</dd>
             <dt>Dirección</dt><dd>{c.direccion || '—'}</dd>
             <dt>Estado</dt><dd>{c.activa ? 'Activa' : 'Inactiva'}</dd>

@@ -33,3 +33,33 @@ create or replace function auth.uid() returns uuid language sql stable as $$
   ), '')::uuid;
 $$;
 grant execute on function auth.uid() to anon, authenticated;
+
+-- Almacenamiento (Supabase Storage): solo las tablas y columnas que usan las
+-- migraciones y las pruebas. Las políticas de storage.objects las crean las migraciones.
+create schema if not exists storage;
+grant usage on schema storage to anon, authenticated;
+
+create table if not exists storage.buckets (
+  id text primary key,
+  name text not null unique,
+  owner uuid,
+  public boolean not null default false,
+  file_size_limit bigint,
+  allowed_mime_types text[],
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets (id),
+  name text not null,
+  owner uuid default auth.uid(),
+  metadata jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (bucket_id, name)
+);
+alter table storage.objects enable row level security;
+grant select on storage.buckets to anon, authenticated;
+grant select, insert, update, delete on storage.objects to authenticated;

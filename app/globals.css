@@ -55,6 +55,8 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .aviso.error { background: var(--error-fondo); color: var(--error); }
 .aviso.ok { background: var(--ok-fondo); color: var(--verde-700); }
 .aviso.info { background: #fff7e6; color: #8a5a00; }
+.aviso.info a { color: inherit; font-weight: 600; }
+.seccion-aviso { margin-bottom: 18px; }
 
 /* Estructura de la aplicación */
 .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
@@ -137,7 +139,16 @@ table.tabla { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .etiqueta.rechazada { background: var(--error-fondo); color: var(--error); }
 .boton.pequeno { padding: 6px 10px; font-size: .85rem; }
 .zona-archivo { border: 2px dashed var(--borde); border-radius: var(--radio); padding: 28px; text-align: center; background: #fafbfa; display: grid; gap: 8px; justify-items: center; }
-.muestra-marca { border-radius: var(--radio); padding: 20px; color: #fff; display: grid; gap: 6px; }
+/* Identidad del edificio: logo sobre tablero (para ver la transparencia) y hoja de muestra */
+.logo-caja { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.tablero { width: 150px; height: 110px; flex: none; border: 1px solid var(--borde); border-radius: 10px; display: grid; place-items: center; padding: 8px; background-color: #fff; background-image: conic-gradient(#e6e9e7 25%, transparent 0 50%, #e6e9e7 0 75%, transparent 0); background-size: 16px 16px; }
+.tablero img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-acciones { display: grid; gap: 8px; flex: 1; min-width: min(180px, 100%); }
+.hoja-muestra { background: #fff; color: var(--tinta); border: 1px solid var(--borde); border-radius: 6px; padding: 18px 18px 12px; display: grid; gap: 16px; box-shadow: 0 6px 20px rgba(12, 59, 38, .08); min-width: 0; }
+.hoja-cuerpo { display: grid; gap: 8px; padding: 6px 0 18px; }
+.hoja-cuerpo span { height: 8px; border-radius: 4px; background: #eef1ef; }
+.hoja-cuerpo span:nth-child(2n) { width: 85%; }
+.hoja-cuerpo span:last-child { width: 55%; }
 input[type='color'] { padding: 2px; height: 42px; }
 
 @media (max-width: 640px) {

@@ -1,4 +1,5 @@
 import { esAdministrador, misOrganizaciones, usuarioActual, type Copropiedad } from '@/lib/datos'
+import { formatearNit } from '@/lib/identidad'
 import { TIPOS_COPROPIEDAD } from '@/lib/validacion'
 import { entrarCopropiedad } from './acciones'
 import { FormularioCopropiedad, FormularioOrganizacion } from './formularios'
@@ -11,6 +12,7 @@ const ENTIDADES: Record<string, string> = {
   copropiedades: 'una copropiedad',
   miembros_organizacion: 'un miembro del equipo',
   accesos_copropiedad: 'un acceso a copropiedad',
+  marcas_copropiedad: 'la identidad de una copropiedad',
 }
 
 export default async function Central() {
@@ -59,7 +61,7 @@ export default async function Central() {
               <dl className="datos">
                 <dt>Tipo</dt><dd>{TIPOS_COPROPIEDAD[c.tipo as keyof typeof TIPOS_COPROPIEDAD] ?? c.tipo}</dd>
                 <dt>Ciudad</dt><dd>{c.ciudad || '—'}</dd>
-                <dt>NIT</dt><dd>{c.nit ?? '—'}</dd>
+                <dt>NIT</dt><dd>{c.nit ? formatearNit(c.nit) : '—'}</dd>
               </dl>
               <form action={entrarCopropiedad.bind(null, c.id)}>
                 <button className="boton secundario" style={{ width: '100%' }}>Entrar</button>
