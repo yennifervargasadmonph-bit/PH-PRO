@@ -1,43 +1,65 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { usuarioActual, type Copropiedad } from '@/lib/datos'
+import { leerCopropiedad, misPermisos, puede, usuarioActual } from '@/lib/datos'
+import { faltantesIdentidad, formatearNit, listarEnEspanol } from '@/lib/identidad'
+import { obtenerIdentidad } from '@/lib/identidad-servidor'
 import { TIPOS_COPROPIEDAD } from '@/lib/validacion'
 
 export const metadata = { title: 'Copropiedad' }
 
 const PROXIMOS = [
-  ['Unidades y coeficientes', 'Sprint 2'],
   ['Personas y autorización de datos', 'Sprint 3'],
   ['Documentos y vencimientos', 'Sprint 4'],
   ['Tareas y alertas', 'Sprint 5'],
+  ['Mantenimientos', 'Sprint 10'],
 ] as const
 
 export default async function PaginaCopropiedad({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound()
+  const c = await leerCopropiedad(id)
+  if (!c) notFound()
+  const permisos = await misPermisos(id)
   const { supabase } = await usuarioActual()
-  // RLS: si la persona no tiene acceso, la consulta no devuelve nada.
-  const { data } = await supabase.from('copropiedades').select('*').eq('id', id).maybeSingle()
-  if (!data) notFound()
-  const c = data as Copropiedad
+  const verUnidades = puede(permisos, 'unidades', 'V')
+  const { data: resumen } = verUnidades ? await supabase.rpc('resumen_coeficientes', { p_copro: id }).single<{ unidades: number; suma: string }>() : { data: null }
+  const suma = Number(resumen?.suma ?? 0)
+  const cuadra = Math.abs(suma - 100) < 0.0005
+  const identidad = puede(permisos, 'perfil', 'V') ? await obtenerIdentidad(id) : null
+  const faltan = identidad ? faltantesIdentidad(identidad) : []
 
   return (
     <>
-      <div className="trabajando" role="status">
-        <span>Trabajando actualmente en: <strong>{c.nombre.toUpperCase()}</strong></span>
-        <Link href="/central">Cambiar</Link>
-      </div>
       <div className="cabecera">
         <div>
           <p className="tenue pequeno" style={{ margin: 0 }}>{TIPOS_COPROPIEDAD[c.tipo as keyof typeof TIPOS_COPROPIEDAD] ?? c.tipo} · Prefijo {c.prefijo}</p>
           <h1>{c.nombre}</h1>
         </div>
       </div>
+
+      {faltan.length > 0 && (
+        <div className="aviso info seccion-aviso" role="status">
+          <strong>Completa la identidad del edificio:</strong> falta {listarEnEspanol(faltan)}. Los documentos se pueden generar, pero lo que falte aparecerá como «Dato faltante».{' '}
+          {puede(permisos, 'perfil', 'E') ? <Link href={`/c/${id}/marca`}>Completar ahora</Link> : 'La administración debe completarla.'}
+        </div>
+      )}
+
+      {verUnidades && resumen && (
+        <div className="cifras">
+          <div className="cifra"><span>Unidades activas</span><strong>{resumen.unidades}</strong></div>
+          <div className={`cifra ${resumen.unidades === 0 ? '' : cuadra ? 'bien' : 'alerta'}`}>
+            <span>Suma de coeficientes</span>
+            <strong>{suma.toLocaleString('es-CO', { maximumFractionDigits: 6 })} %</strong>
+            {resumen.unidades > 0 && !cuadra && <span>Debe sumar 100 %. <Link href={`/c/${id}/unidades`}>Revisar</Link></span>}
+          </div>
+        </div>
+      )}
+
       <div className="rejilla">
         <section className="tarjeta">
           <h3>Datos básicos</h3>
           <dl className="datos">
-            <dt>NIT</dt><dd>{c.nit ?? '—'}</dd>
+            {identidad?.nombreLegal && <><dt>Nombre completo</dt><dd>{identidad.nombreLegal}</dd></>}
+            <dt>NIT</dt><dd>{c.nit ? formatearNit(c.nit) : '—'}</dd>
             <dt>Ciudad</dt><dd>{c.ciudad || '—'}</dd>
             <dt>Dirección</dt><dd>{c.direccion || '—'}</dd>
             <dt>Estado</dt><dd>{c.activa ? 'Activa' : 'Inactiva'}</dd>

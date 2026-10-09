@@ -19,7 +19,7 @@ beforeAll(async () => {
   u.otraOrg = await crearUsuario(db, 'otra@ejemplo.co')
   u.sinOrg = await crearUsuario(db, 'nueva@ejemplo.co')
 
-  org.a = (await como(db, u.admin, `select crear_organizacion('Administración de prueba', '900123456-1') as id`)).rows[0].id
+  org.a = (await como(db, u.admin, `select crear_organizacion('Administración de prueba', '900123456-8') as id`)).rows[0].id
   org.b = (await como(db, u.otraOrg, `select crear_organizacion('Otra administradora') as id`)).rows[0].id
 
   const crear = (usuario: string, o: string, nombre: string, prefijo: string) =>
@@ -29,7 +29,7 @@ beforeAll(async () => {
   copro.ajena = await crear(u.otraOrg, org.b, 'Copropiedad ajena', 'AJ')
 
   await como(db, u.admin, `insert into miembros_organizacion (organizacion_id, usuario_id, rol) values ($1, $2, 'miembro')`, [org.a, u.asistente])
-  await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, 'asistente')`, [copro.alamos, u.asistente])
+  await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, 'auxiliar')`, [copro.alamos, u.asistente])
 }, 60_000)
 
 afterAll(async () => {

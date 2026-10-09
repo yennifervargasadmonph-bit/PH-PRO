@@ -3,7 +3,7 @@
 Administración de propiedad horizontal en Colombia (Ley 675 de 2001).
 Regla de la casa: **la IA propone, la administración decide**.
 
-## Qué hay en este momento (Sprint 1)
+## Qué hay en este momento (Sprints 1 y 2)
 
 - Ingreso con correo y contraseña, recuperación por correo y verificación en dos pasos con aplicación autenticadora.
 - Cierre de sesión tras 30 minutos sin actividad.
@@ -12,6 +12,15 @@ Regla de la casa: **la IA propone, la administración decide**.
 - Aislamiento por fila (RLS) en PostgreSQL: cada persona solo ve las organizaciones y copropiedades a las que pertenece.
 - Bitácora inmutable de cambios.
 - Pruebas automáticas de fuga entre organizaciones y copropiedades en cada cambio (`tests/db`).
+- Roles por copropiedad (administradora, auxiliar, contador, revisor fiscal, consejo, portería) con permisos por módulo según la matriz de la Fase 0.
+- Equipo: agregar personas con cuenta y asignarles copropiedades y roles.
+- Unidades con coeficientes, control de que sumen 100 %, edición e inactivación (nada se borra).
+- Importación de unidades desde Excel (.xlsx) o CSV: mapeo de columnas, validación, vista previa
+  (nuevas, actualizadas, sin cambios y rechazadas), aprobación de la administración y registro de cada importación.
+- Identidad del edificio: logo, nombre completo, NIT (con dígito de verificación DIAN) y celular de la
+  administración, más colores, representante legal y contacto. Todos los documentos usan esa identidad
+  (`components/membrete.tsx`: `<Membrete/>` y `<PieInstitucional/>`; lo que falte sale como «Dato faltante»).
+  Los logos van al bucket privado `marcas` de Supabase Storage (`<copropiedad_id>/logo.<ext>`, máx. 2 MB).
 
 ## Tecnología
 
@@ -40,8 +49,8 @@ npm test          # pruebas unitarias
 npm run test:db   # aislamiento entre copropiedades; necesita PostgreSQL 16 en DATABASE_URL
 ```
 
-`tests/db` aplica las migraciones sobre una base nueva con un pequeño emulador del esquema `auth`
-de Supabase (`tests/db/supabase-shim.sql`) y comprueba, como usuarios reales, que nadie puede leer
+`tests/db` aplica las migraciones sobre una base nueva con un pequeño emulador de los esquemas `auth`
+y `storage` de Supabase (`tests/db/supabase-shim.sql`) y comprueba, como usuarios reales, que nadie puede leer
 ni escribir datos de otra organización o de una copropiedad que no tiene asignada.
 También falla si alguien crea una tabla sin RLS.
 
