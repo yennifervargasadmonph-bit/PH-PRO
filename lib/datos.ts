@@ -39,3 +39,26 @@ export const misOrganizaciones = cache(async (): Promise<Organizacion[]> => {
 })
 
 export const esAdministrador = (o: Organizacion) => o.rol === 'propietario' || o.rol === 'administrador'
+
+export type Permisos = Record<string, string[]>
+
+/** Copropiedad visible para la persona (RLS) o null. */
+export const leerCopropiedad = cache(async (id: string): Promise<Copropiedad | null> => {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null
+  const { supabase } = await usuarioActual()
+  const { data } = await supabase.from('copropiedades').select('*').eq('id', id).maybeSingle()
+  return (data as Copropiedad | null) ?? null
+})
+
+/** Permisos de la persona en la copropiedad, por módulo. */
+export const misPermisos = cache(async (copropiedadId: string): Promise<Permisos> => {
+  const { supabase } = await usuarioActual()
+  const { data } = await supabase.rpc('mis_permisos', { p_copro: copropiedadId })
+  const permisos: Permisos = {}
+  for (const p of (data ?? []) as { modulo: string; acciones: string[] }[]) {
+    permisos[p.modulo] = [...new Set([...(permisos[p.modulo] ?? []), ...p.acciones])]
+  }
+  return permisos
+})
+
+export const puede = (permisos: Permisos, modulo: string, accion: string) => permisos[modulo]?.includes(accion) ?? false

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { digitoVerificacion, esquemaCopropiedad, normalizarNit, sugerirPrefijo } from '@/lib/validacion'
-import { destinoSeguro, sesionVencida } from '@/lib/sesion'
+import { COOKIE_ACTIVIDAD, MINUTOS_INACTIVIDAD, cookieActividad, destinoSeguro, sesionVencida } from '@/lib/sesion'
 
 describe('NIT', () => {
   it('calcula el dígito de verificación de la DIAN', () => {
@@ -29,9 +29,27 @@ describe('copropiedad', () => {
   })
 
   it('valida y normaliza el formulario', () => {
-    const r = esquemaCopropiedad.parse({ nombre: ' Edificio Álamos 23 ', nit: '', tipo: 'edificio', prefijo: 'a23' })
-    expect(r).toMatchObject({ nombre: 'Edificio Álamos 23', nit: null, prefijo: 'A23', ciudad: '' })
-    expect(esquemaCopropiedad.safeParse({ nombre: 'X Y', tipo: 'edificio', prefijo: 'A 2', nit: '' }).success).toBe(false)
+    const identidad = { nombre_legal: ' Edificio  Álamos 23 Propiedad Horizontal ', nit: '900.123.456', celular: '+57 300 123 4567' }
+    const r = esquemaCopropiedad.parse({ nombre: ' Edificio Álamos 23 ', ...identidad, tipo: 'edificio', prefijo: 'a23' })
+    expect(r).toMatchObject({
+      nombre: 'Edificio Álamos 23',
+      nombre_legal: 'Edificio Álamos 23 Propiedad Horizontal',
+      nit: '900123456-8',
+      celular: '3001234567',
+      prefijo: 'A23',
+      ciudad: '',
+    })
+    expect(esquemaCopropiedad.safeParse({ nombre: 'X Y', ...identidad, tipo: 'edificio', prefijo: 'A 2' }).success).toBe(false)
+  })
+
+  it('exige nombre completo, NIT y celular al crearla', () => {
+    const base = { nombre: 'Álamos 23', tipo: 'edificio', prefijo: 'A23' }
+    expect(esquemaCopropiedad.safeParse({ ...base, nombre_legal: 'Edificio Álamos 23 PH', nit: '', celular: '3001234567' }).error?.issues[0].message).toMatch(/NIT/)
+    expect(esquemaCopropiedad.safeParse({ ...base, nombre_legal: 'Edificio Álamos 23 PH', nit: '900123456-1', celular: '3001234567' }).error?.issues[0].message).toBe(
+      'El dígito de verificación no corresponde a este NIT.',
+    )
+    expect(esquemaCopropiedad.safeParse({ ...base, nombre_legal: 'Edificio Álamos 23 PH', nit: '900123456-8', celular: '6011234567' }).success).toBe(false)
+    expect(esquemaCopropiedad.safeParse({ ...base, nombre_legal: 'PH', nit: '900123456-8', celular: '3001234567' }).success).toBe(false)
   })
 })
 
@@ -40,7 +58,10 @@ describe('sesión', () => {
     const ahora = Date.now()
     expect(sesionVencida(String(ahora - 29 * 60_000), ahora)).toBe(false)
     expect(sesionVencida(String(ahora - 31 * 60_000), ahora)).toBe(true)
-    expect(sesionVencida(undefined, ahora)).toBe(false)
+    // Sin marca de actividad la sesión se da por vencida.
+    expect(sesionVencida(undefined, ahora)).toBe(true)
+    expect(sesionVencida('', ahora)).toBe(true)
+    expect(sesionVencida('no-es-numero', ahora)).toBe(true)
   })
 
   it('solo redirige a rutas internas', () => {
@@ -48,5 +69,14 @@ describe('sesión', () => {
     expect(destinoSeguro('https://malo.com')).toBe('/central')
     expect(destinoSeguro('//malo.com')).toBe('/central')
     expect(destinoSeguro(null)).toBe('/central')
+  })
+})
+
+describe('cookie de actividad', () => {
+  it('se fija con la hora actual, solo para el servidor y con la marca que el proxy entiende', () => {
+    const c = cookieActividad(true, 1_700_000_000_000)
+    expect(c).toMatchObject({ name: COOKIE_ACTIVIDAD, value: '1700000000000', httpOnly: true, secure: true, sameSite: 'lax', path: '/' })
+    expect(c.maxAge).toBeGreaterThan(MINUTOS_INACTIVIDAD * 60)
+    expect(sesionVencida(c.value, 1_700_000_000_000 + 60_000)).toBe(false)
   })
 })

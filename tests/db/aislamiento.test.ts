@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type pg from 'pg'
-import { como, crearBaseDePrueba, crearUsuario } from './helpers'
+import { como, crearBaseDePrueba, crearUsuario, unirAOrganizacion } from './helpers'
 
 // Pruebas automáticas de fuga entre organizaciones y copropiedades.
 // Corren contra un PostgreSQL real con las mismas políticas RLS de producción.
@@ -19,7 +19,7 @@ beforeAll(async () => {
   u.otraOrg = await crearUsuario(db, 'otra@ejemplo.co')
   u.sinOrg = await crearUsuario(db, 'nueva@ejemplo.co')
 
-  org.a = (await como(db, u.admin, `select crear_organizacion('Administración de prueba', '900123456-1') as id`)).rows[0].id
+  org.a = (await como(db, u.admin, `select crear_organizacion('Administración de prueba', '900123456-8') as id`)).rows[0].id
   org.b = (await como(db, u.otraOrg, `select crear_organizacion('Otra administradora') as id`)).rows[0].id
 
   const crear = (usuario: string, o: string, nombre: string, prefijo: string) =>
@@ -28,8 +28,8 @@ beforeAll(async () => {
   copro.santaElena = await crear(u.admin, org.a, 'Urbanización Santa Elena', 'SE')
   copro.ajena = await crear(u.otraOrg, org.b, 'Copropiedad ajena', 'AJ')
 
-  await como(db, u.admin, `insert into miembros_organizacion (organizacion_id, usuario_id, rol) values ($1, $2, 'miembro')`, [org.a, u.asistente])
-  await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, 'asistente')`, [copro.alamos, u.asistente])
+  await unirAOrganizacion(db, u.admin, org.a, u.asistente)
+  await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, 'auxiliar')`, [copro.alamos, u.asistente])
 }, 60_000)
 
 afterAll(async () => {
@@ -62,13 +62,17 @@ describe('organizaciones', () => {
   it('nadie se agrega solo a una organización ajena', async () => {
     await expect(
       como(db, u.otraOrg, `insert into miembros_organizacion (organizacion_id, usuario_id, rol) values ($1, $2, 'administrador')`, [org.a, u.otraOrg]),
-    ).rejects.toThrow(/row-level security/)
+    ).rejects.toThrow(/permission denied/)
+  })
+
+  it('ni la administración inserta miembros directamente (solo por invitación aceptada)', async () => {
+    await expect(
+      como(db, u.admin, `insert into miembros_organizacion (organizacion_id, usuario_id, rol) values ($1, $2, 'miembro')`, [org.a, u.sinOrg]),
+    ).rejects.toThrow(/permission denied/)
   })
 
   it('un administrador no puede crear ni quitar propietarios', async () => {
-    await expect(
-      como(db, u.admin, `insert into miembros_organizacion (organizacion_id, usuario_id, rol) values ($1, $2, 'propietario')`, [org.a, u.sinOrg]),
-    ).rejects.toThrow(/row-level security/)
+    await expect(como(db, u.admin, `select invitar_persona($1, 'nueva@ejemplo.co', 'propietario')`, [org.a])).rejects.toThrow(/propietario/)
     const r = await como(db, u.admin, `delete from miembros_organizacion where usuario_id = $1`, [u.admin])
     expect(r.rowCount).toBe(0)
   })
@@ -153,6 +157,20 @@ describe('perfiles', () => {
   it('se ven los perfiles de la propia organización y no los de otras', async () => {
     const r = await como(db, u.admin, 'select correo from perfiles order by correo')
     expect(r.rows.map((x) => x.correo)).toEqual(['administradora@ejemplo.co', 'asistente@ejemplo.co'])
+  })
+
+  it('cada quien cambia su nombre, pero no su correo', async () => {
+    const r = await como(db, u.asistente, `update perfiles set nombre = 'Asistente Uno' where id = $1`, [u.asistente])
+    expect(r.rowCount).toBe(1)
+    await expect(como(db, u.asistente, `update perfiles set correo = 'administradora@ejemplo.co' where id = $1`, [u.asistente])).rejects.toThrow(
+      /permission denied/,
+    )
+  })
+
+  it('el correo del perfil sigue al de la cuenta', async () => {
+    await db.query(`update auth.users set email = 'Nueva.Direccion@ejemplo.co' where id = $1`, [u.sinOrg])
+    expect((await db.query('select correo from perfiles where id = $1', [u.sinOrg])).rows[0].correo).toBe('Nueva.Direccion@ejemplo.co')
+    await db.query(`update auth.users set email = 'nueva@ejemplo.co' where id = $1`, [u.sinOrg])
   })
 
   it('nadie edita el perfil de otra persona', async () => {

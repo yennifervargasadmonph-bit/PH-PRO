@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useActionState } from 'react'
+import { Captcha } from '@/components/captcha'
 import { ingresar, type EstadoFormulario } from './acciones'
 
 export function FormularioIngreso({ siguiente }: { siguiente?: string }) {
@@ -16,6 +17,8 @@ export function FormularioIngreso({ siguiente }: { siguiente?: string }) {
         Contraseña
         <input name="clave" type="password" autoComplete="current-password" required />
       </label>
+      {/* Un token de CAPTCHA sirve una vez: se vuelve a montar tras cada intento. */}
+      <Captcha key={JSON.stringify(estado)} />
       {estado.error && <p className="aviso error" role="alert">{estado.error}</p>}
       <button className="boton" disabled={enviando}>{enviando ? 'Ingresando…' : 'Ingresar'}</button>
       <p className="pequeno" style={{ textAlign: 'center', margin: 0 }}>

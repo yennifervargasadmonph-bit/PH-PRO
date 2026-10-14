@@ -1,31 +1,16 @@
 import { z } from 'zod'
-
-const PESOS_NIT = [3, 7, 13, 17, 19, 23, 29, 37, 41, 43, 47, 53, 59, 67, 71]
+import { calcularDv, normalizarCelular, validarNit, validarNombreLegal } from './identidad'
 
 /** Dígito de verificación de un NIT colombiano (algoritmo de la DIAN). */
-export function digitoVerificacion(numero: string) {
-  const digitos = numero.replace(/\D/g, '')
-  if (!digitos || digitos.length > PESOS_NIT.length) throw new Error('NIT inválido')
-  let suma = 0
-  for (let i = 0; i < digitos.length; i++) {
-    suma += Number(digitos[digitos.length - 1 - i]) * PESOS_NIT[i]
-  }
-  const residuo = suma % 11
-  return residuo > 1 ? 11 - residuo : residuo
-}
+export const digitoVerificacion = calcularDv
 
 /**
- * Normaliza un NIT a la forma "900123456-1". Acepta puntos, espacios y guion.
+ * Normaliza un NIT a la forma "900123456-8". Acepta puntos, espacios y guion.
  * Si no trae dígito de verificación lo calcula; si lo trae, lo valida.
  */
 export function normalizarNit(entrada: string): string | null {
-  const limpio = entrada.replace(/[.\s]/g, '')
-  const m = limpio.match(/^(\d{6,12})(?:-?(\d))?$/)
-  if (!m) return null
-  const [, numero, dv] = m
-  const calculado = digitoVerificacion(numero)
-  if (dv !== undefined && Number(dv) !== calculado) return null
-  return `${numero}-${calculado}`
+  const r = validarNit(entrada)
+  return r.ok ? r.nit : null
 }
 
 const nitOpcional = z
@@ -33,13 +18,55 @@ const nitOpcional = z
   .trim()
   .transform((v, ctx) => {
     if (!v) return null
-    const n = normalizarNit(v)
-    if (!n) {
-      ctx.addIssue({ code: 'custom', message: 'El NIT no es válido o su dígito de verificación no coincide.' })
+    const r = validarNit(v)
+    if (!r.ok) {
+      ctx.addIssue({ code: 'custom', message: r.error })
       return z.NEVER
     }
-    return n
+    return r.nit
   })
+
+const nitObligatorio = z
+  .string({ error: 'Escribe el NIT de la copropiedad.' })
+  .trim()
+  .min(1, 'Escribe el NIT de la copropiedad.')
+  .transform((v, ctx) => {
+    const r = validarNit(v)
+    if (!r.ok) {
+      ctx.addIssue({ code: 'custom', message: r.error })
+      return z.NEVER
+    }
+    return r.nit
+  })
+
+const nombreLegal = z
+  .string({ error: 'Escribe el nombre completo de la copropiedad.' })
+  .transform((v, ctx) => {
+    const r = validarNombreLegal(v)
+    if (!r.ok) {
+      ctx.addIssue({ code: 'custom', message: r.error })
+      return z.NEVER
+    }
+    return r.nombre
+  })
+
+const celular = z
+  .string({ error: 'Escribe el celular de la administración.' })
+  .transform((v, ctx) => {
+    const c = normalizarCelular(v)
+    if (!c) {
+      ctx.addIssue({ code: 'custom', message: 'Escribe un celular colombiano de 10 dígitos que empiece por 3, por ejemplo 300 123 4567.' })
+      return z.NEVER
+    }
+    return c
+  })
+
+/** Datos de identidad obligatorios de una copropiedad (el logo puede llegar después). */
+export const esquemaIdentidad = z.object({
+  nombre_legal: nombreLegal,
+  nit: nitObligatorio,
+  celular,
+})
 
 export const esquemaOrganizacion = z.object({
   nombre: z.string().trim().min(2, 'Escribe el nombre de la organización.').max(160),
@@ -55,8 +82,8 @@ export const TIPOS_COPROPIEDAD = {
 } as const
 
 export const esquemaCopropiedad = z.object({
-  nombre: z.string().trim().min(2, 'Escribe el nombre de la copropiedad.').max(160),
-  nit: nitOpcional,
+  nombre: z.string().trim().min(2, 'Escribe el nombre corto de la copropiedad.').max(160),
+  ...esquemaIdentidad.shape,
   tipo: z.enum(Object.keys(TIPOS_COPROPIEDAD) as [keyof typeof TIPOS_COPROPIEDAD, ...(keyof typeof TIPOS_COPROPIEDAD)[]]),
   ciudad: z.string().trim().max(80).default(''),
   direccion: z.string().trim().max(160).default(''),

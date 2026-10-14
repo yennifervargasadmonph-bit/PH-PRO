@@ -3,15 +3,122 @@
 Administración de propiedad horizontal en Colombia (Ley 675 de 2001).
 Regla de la casa: **la IA propone, la administración decide**.
 
-## Qué hay en este momento (Sprint 1)
+## Qué hay en este momento (Sprints 1 y 2)
 
 - Ingreso con correo y contraseña, recuperación por correo y verificación en dos pasos con aplicación autenticadora.
 - Cierre de sesión tras 30 minutos sin actividad.
 - Organizaciones administradoras y copropiedades (PH PRO Central), con el aviso
   "Trabajando actualmente en: NOMBRE DE LA COPROPIEDAD" al entrar a una de ellas.
 - Aislamiento por fila (RLS) en PostgreSQL: cada persona solo ve las organizaciones y copropiedades a las que pertenece.
-- Bitácora inmutable de cambios.
+- Bitácora inmutable de cambios, sin datos personales.
 - Pruebas automáticas de fuga entre organizaciones y copropiedades en cada cambio (`tests/db`).
+- Roles por copropiedad (administradora, auxiliar, contador, revisor fiscal, consejo, portería) con permisos por módulo según la matriz de la Fase 0.
+- Equipo por invitación: la administración invita por correo (opcionalmente con una copropiedad y un rol),
+  ve las invitaciones pendientes y las puede revocar; la persona acepta con su sesión iniciada.
+- Unidades con coeficientes, control de que sumen 100 %, edición e inactivación (nada se borra).
+- Importación de unidades desde Excel (.xlsx) o CSV: mapeo de columnas, validación, vista previa
+  (nuevas, actualizadas, sin cambios y rechazadas), aprobación de la administración y registro de cada importación.
+- Identidad del edificio: logo, nombre completo, NIT (con dígito de verificación DIAN) y celular de la
+  administración, más colores, representante legal y contacto. Todos los documentos usan esa identidad
+  (`components/membrete.tsx`: `<Membrete/>` y `<PieInstitucional/>`; lo que falte sale como «Dato faltante»).
+  Los logos van al bucket privado `marcas` de Supabase Storage (`<copropiedad_id>/logo.<png|jpg|webp>`, máx. 2 MB;
+  solo PNG, JPG o WEBP, revisando los primeros bytes del archivo; nunca SVG).
+
+## Seguridad
+
+### Verificación en dos pasos (exigida por la base de datos)
+
+- Quien tiene un factor verificado debe usar una sesión `aal2` (contraseña + código) para leer o escribir
+  cualquier dato. Para administradora, auxiliar, contador, revisor fiscal y la administración de la
+  organización (propietario o administrador) es obligatoria aunque no la hayan activado.
+- Se aplica con la política restrictiva `exigir_mfa` en todas las tablas de `public` y en `storage.objects`,
+  y con `app.exigir_mfa()` dentro de cada función `security definer`
+  (`supabase/migrations/20261014000001_mfa_obligatoria.sql`). La aplicación (`proxy.ts`) solo lleva a la
+  persona a `/verificar` o a `/seguridad?obligatoria=1`; aunque alguien se salte la aplicación, la base no
+  entrega datos.
+- `tests/db/mfa.test.ts` falla si una tabla nueva no tiene la política o si una función `security definer`
+  del esquema público no llama a `app.exigir_mfa()`.
+- Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
+
+### Equipo por invitación
+
+- El correo del perfil (`perfiles.correo`) no lo puede editar la persona: se copia de `auth.users` con un
+  trigger. Solo `perfiles.nombre` es editable.
+- Nadie se agrega directamente a una organización. La administración crea una invitación
+  (`invitar_persona`) y siempre recibe el mismo mensaje: «Si el correo corresponde a una cuenta o se
+  registra, recibirá la invitación». La base no consulta si el correo tiene cuenta.
+- **Envío de la invitación:** este proyecto no tiene correo transaccional propio, así que la pantalla
+  Equipo muestra el enlace (`/invitacion?token=…`) para copiarlo y enviarlo por correo o WhatsApp. Se ve una
+  sola vez (en la base solo queda el SHA-256 del token), vence a los 7 días y sirve una vez.
+- La persona abre el enlace, ingresa (si no tiene cuenta, se la crea quien administra el proyecto de
+  Supabase en Authentication > Users > Invite user, con el mismo correo) y acepta. `aceptar_invitacion`
+  exige que el correo confirmado de la sesión sea el invitado (sin distinguir mayúsculas).
+- Pruebas: `tests/db/invitaciones.test.ts`.
+
+### Cierre de sesión por inactividad
+
+- La cookie `phpro_ultima_actividad` (httpOnly) se fija al ingresar con contraseña y al entrar por un enlace
+  del correo, y `proxy.ts` la renueva en cada solicitud (ventana deslizante de 30 minutos). Si falta o
+  pasaron más de 30 minutos, el proxy cierra la sesión.
+- Como la cookie vive en el navegador, configura también el límite en Supabase para que la sesión venza
+  del lado del servidor aunque alguien conserve los tokens: Authentication > Sessions (requiere plan Pro):
+  - **Inactivity timeout:** `30m` (igual a `MINUTOS_INACTIVIDAD` en `lib/sesion.ts`).
+  - **Time-box user sessions:** `12h` (una jornada; después se pide ingresar de nuevo).
+  - Opcional: **Single session per user**.
+- Authentication > Settings: deja el **JWT expiry** en 3600 s o menos.
+
+### Encabezados HTTP
+
+- `proxy.ts` pone en cada página una Content-Security-Policy con nonce por solicitud
+  (`lib/encabezados.ts`, guía de CSP de Next.js): scripts solo con el nonce y `'strict-dynamic'`,
+  `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` y `connect-src`
+  limitado a la propia aplicación y al proyecto de Supabase (HTTPS y websocket). Por eso todas las páginas
+  se generan al momento (`connection()` en `app/layout.tsx`).
+- `next.config.ts` agrega `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`,
+  `X-Frame-Options` y `Permissions-Policy` también a los archivos estáticos.
+
+### Bitácora sin datos personales
+
+- La bitácora es inmutable, así que no guarda datos personales que luego haya que suprimir (Ley 1581 de
+  2012). `app.bitacora_campos` declara, por tabla, qué campos se registran con su valor; cualquier otro
+  campo se guarda como `[dato personal]` y la entrada lista en `cambios` qué campos cambiaron.
+- Hoy se enmascaran, entre otros, el correo, celular, teléfono y representante legal de la identidad, el
+  correo y el token de las invitaciones y los rechazos de las importaciones.
+- **Al crear una tabla nueva con bitácora** (PQRS, convivencia, residentes…), agrega en la misma migración
+  sus campos no personales a `app.bitacora_campos`. Lo que no se declare queda enmascarado. Nunca declares
+  correos, celulares, documentos, nombres de residentes ni texto libre. `tests/db/bitacora.test.ts` falla si
+  una tabla con el trigger de bitácora no tiene campos declarados.
+
+### Contraseñas y abuso (configuración de Supabase)
+
+El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador; la regla real la pone Supabase:
+
+- Authentication > Providers > Email (o Settings > Password): **Minimum password length = 12** y
+  **Password requirements** con minúsculas, mayúsculas, dígitos y símbolos.
+- **Leaked password protection** (HaveIBeenPwned) activada (plan Pro).
+- Authentication > Bot and Abuse Protection: **Enable CAPTCHA protection** con Cloudflare Turnstile o
+  hCaptcha y su llave secreta. Luego pon en `.env.local` (y en el hosting)
+  `NEXT_PUBLIC_CAPTCHA_PROVEEDOR=turnstile` (o `hcaptcha`) y `NEXT_PUBLIC_CAPTCHA_SITE_KEY=<llave del sitio>`.
+  Con esas variables, ingreso y recuperación de contraseña muestran el widget y envían el token a Supabase
+  (`lib/captcha.ts`, `components/captcha.tsx`) y la CSP agrega los orígenes del proveedor. Sin ellas los
+  formularios funcionan sin CAPTCHA. Activa las dos cosas a la vez: si Supabase exige CAPTCHA y la
+  aplicación no lo envía, nadie podrá ingresar.
+- Authentication > Rate Limits: deja los límites por defecto o más estrictos.
+
+### Cadena de suministro
+
+- `.github/dependabot.yml`: actualizaciones semanales de npm y de las acciones de GitHub.
+- `.github/workflows/codeql.yml`: análisis CodeQL (`javascript-typescript`, consultas `security-extended`)
+  en cada PR, en `main` y cada lunes, con permisos mínimos (`contents: read`, `security-events: write`).
+- En GitHub > Settings > Code security mantén activos **Secret scanning** y **Push protection** (hoy lo
+  están) y activa **Dependabot alerts** y **Dependabot security updates**.
+- `npm audit --omit=dev`: 0 vulnerabilidades en producción. `npm audit` reporta 5 «high» en la cadena
+  solo de desarrollo `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
+  `braces` (GHSA-vfj7-8cjw-p6xm). No hay versión corregida de `braces` (3.0.3 es la última) y
+  `eslint-config-next` 16.4.0 es la más reciente, así que no hay actualización ni `override` seguro; la
+  única «solución» de npm es bajar a `eslint-config-next@14`, que no sirve para Next 16. El riesgo es bajo:
+  solo corre en `npm run lint` con patrones del propio repositorio, nunca en la aplicación. Dependabot
+  propondrá la actualización cuando exista.
 
 ## Tecnología
 
@@ -26,7 +133,8 @@ Regla de la casa: **la IA propone, la administración decide**.
    (o usa `supabase db push` con la CLI de Supabase).
 3. En Authentication:
    - URL Configuration: agrega `https://TU-DOMINIO/auth/confirmar` a las URL de redirección.
-   - Desactiva el registro abierto (Sign ups). Las cuentas se crean desde Authentication > Users > Invite user.
+   - Desactiva el registro abierto (Sign ups). Las cuentas se crean desde Authentication > Users > Invite user;
+     luego la administración las invita al equipo desde PH PRO (ver «Equipo por invitación»).
    - Activa MFA con TOTP.
 4. Copia `.env.example` como `.env.local` y completa la URL y la llave publicable del proyecto.
 5. `npm install` y `npm run dev`. La aplicación queda en http://localhost:3000.
@@ -40,8 +148,8 @@ npm test          # pruebas unitarias
 npm run test:db   # aislamiento entre copropiedades; necesita PostgreSQL 16 en DATABASE_URL
 ```
 
-`tests/db` aplica las migraciones sobre una base nueva con un pequeño emulador del esquema `auth`
-de Supabase (`tests/db/supabase-shim.sql`) y comprueba, como usuarios reales, que nadie puede leer
+`tests/db` aplica las migraciones sobre una base nueva con un pequeño emulador de los esquemas `auth`
+y `storage` de Supabase (`tests/db/supabase-shim.sql`) y comprueba, como usuarios reales, que nadie puede leer
 ni escribir datos de otra organización o de una copropiedad que no tiene asignada.
 También falla si alguien crea una tabla sin RLS.
 
@@ -49,4 +157,7 @@ También falla si alguien crea una tabla sin RLS.
 
 - Toda tabla con datos de una copropiedad lleva `copropiedad_id`, RLS activo y políticas que usen
   `app.puede_ver_copropiedad()` o `app.es_admin_org()`.
+- Además, la política restrictiva `exigir_mfa` (ver «Verificación en dos pasos») y, si tiene bitácora, sus
+  campos no personales en `app.bitacora_campos`. Toda función `security definer` del esquema público
+  empieza con `perform app.exigir_mfa();`.
 - Agrega sus casos a `tests/db/aislamiento.test.ts` antes de construir pantallas.
