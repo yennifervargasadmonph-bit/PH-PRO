@@ -1,0 +1,19 @@
+# Actualizaciones de dependencias (npm y acciones de GitHub) cada semana.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/Bogota
+    open-pull-requests-limit: 10
+    groups:
+      menores:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/Bogota

@@ -103,6 +103,21 @@ El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador;
   aplicación no lo envía, nadie podrá ingresar.
 - Authentication > Rate Limits: deja los límites por defecto o más estrictos.
 
+### Cadena de suministro
+
+- `.github/dependabot.yml`: actualizaciones semanales de npm y de las acciones de GitHub.
+- `.github/workflows/codeql.yml`: análisis CodeQL (`javascript-typescript`, consultas `security-extended`)
+  en cada PR, en `main` y cada lunes, con permisos mínimos (`contents: read`, `security-events: write`).
+- En GitHub > Settings > Code security mantén activos **Secret scanning** y **Push protection** (hoy lo
+  están) y activa **Dependabot alerts** y **Dependabot security updates**.
+- `npm audit --omit=dev`: 0 vulnerabilidades en producción. `npm audit` reporta 5 «high» en la cadena
+  solo de desarrollo `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
+  `braces` (GHSA-vfj7-8cjw-p6xm). No hay versión corregida de `braces` (3.0.3 es la última) y
+  `eslint-config-next` 16.4.0 es la más reciente, así que no hay actualización ni `override` seguro; la
+  única «solución» de npm es bajar a `eslint-config-next@14`, que no sirve para Next 16. El riesgo es bajo:
+  solo corre en `npm run lint` con patrones del propio repositorio, nunca en la aplicación. Dependabot
+  propondrá la actualización cuando exista.
+
 - Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
 
 ## Tecnología
