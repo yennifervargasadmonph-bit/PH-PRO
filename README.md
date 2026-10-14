@@ -10,7 +10,7 @@ Regla de la casa: **la IA propone, la administración decide**.
 - Organizaciones administradoras y copropiedades (PH PRO Central), con el aviso
   "Trabajando actualmente en: NOMBRE DE LA COPROPIEDAD" al entrar a una de ellas.
 - Aislamiento por fila (RLS) en PostgreSQL: cada persona solo ve las organizaciones y copropiedades a las que pertenece.
-- Bitácora inmutable de cambios.
+- Bitácora inmutable de cambios, sin datos personales.
 - Pruebas automáticas de fuga entre organizaciones y copropiedades en cada cambio (`tests/db`).
 - Roles por copropiedad (administradora, auxiliar, contador, revisor fiscal, consejo, portería) con permisos por módulo según la matriz de la Fase 0.
 - Equipo por invitación: la administración invita por correo (opcionalmente con una copropiedad y un rol),
@@ -74,6 +74,18 @@ Regla de la casa: **la IA propone, la administración decide**.
   se generan al momento (`connection()` en `app/layout.tsx`).
 - `next.config.ts` agrega `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`,
   `X-Frame-Options` y `Permissions-Policy` también a los archivos estáticos.
+
+### Bitácora sin datos personales
+
+- La bitácora es inmutable, así que no guarda datos personales que luego haya que suprimir (Ley 1581 de
+  2012). `app.bitacora_campos` declara, por tabla, qué campos se registran con su valor; cualquier otro
+  campo se guarda como `[dato personal]` y la entrada lista en `cambios` qué campos cambiaron.
+- Hoy se enmascaran, entre otros, el correo, celular, teléfono y representante legal de la identidad, el
+  correo y el token de las invitaciones y los rechazos de las importaciones.
+- **Al crear una tabla nueva con bitácora** (PQRS, convivencia, residentes…), agrega en la misma migración
+  sus campos no personales a `app.bitacora_campos`. Lo que no se declare queda enmascarado. Nunca declares
+  correos, celulares, documentos, nombres de residentes ni texto libre. `tests/db/bitacora.test.ts` falla si
+  una tabla con el trigger de bitácora no tiene campos declarados.
 
 - Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
 

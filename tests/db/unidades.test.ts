@@ -191,7 +191,7 @@ describe('importación de unidades', () => {
 describe('bitácora', () => {
   it('registra unidades e importaciones; el revisor fiscal la ve solo de su copropiedad', async () => {
     const r = await como(db, u.revisor, `select distinct entidad from bitacora order by entidad`)
-    expect(r.rows.map((x) => x.entidad)).toEqual(['accesos_copropiedad', 'copropiedades', 'importaciones', 'marcas_copropiedad', 'unidades'])
+    expect(r.rows.map((x) => x.entidad)).toEqual(['accesos_copropiedad', 'copropiedades', 'importaciones', 'invitaciones', 'marcas_copropiedad', 'unidades'])
     const otras = await como(db, u.revisor, `select * from bitacora where copropiedad_id <> $1 or copropiedad_id is null`, [copro.alamos])
     expect(otras.rowCount).toBe(0)
     expect((await como(db, u.auxiliar, 'select * from bitacora')).rowCount).toBe(0)

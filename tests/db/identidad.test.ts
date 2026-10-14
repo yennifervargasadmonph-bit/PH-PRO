@@ -149,11 +149,12 @@ describe('bitácora de la identidad', () => {
     expect(r.rows[0].creado_en).toBeInstanceOf(Date)
   })
 
-  it('registra los cambios de nombre completo y celular', async () => {
+  it('registra los cambios de nombre completo y celular (el celular, enmascarado)', async () => {
     const r = await como(db, u.dueno, `
-      select datos -> 'despues' ->> 'nombre_legal' as nombre, datos -> 'despues' ->> 'celular' as celular
+      select datos -> 'despues' ->> 'nombre_legal' as nombre, datos -> 'despues' ->> 'celular' as celular,
+             datos -> 'cambios' ? 'celular' as cambio_celular
       from bitacora where entidad = 'marcas_copropiedad' and usuario_id = $1`, [u.adminCopro])
-    expect(r.rows).toContainEqual({ nombre: 'Edificio Álamos 23 Propiedad Horizontal', celular: '3001234567' })
+    expect(r.rows).toContainEqual({ nombre: 'Edificio Álamos 23 Propiedad Horizontal', celular: '[dato personal]', cambio_celular: true })
   })
 })
 
