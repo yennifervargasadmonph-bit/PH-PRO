@@ -1,8 +1,9 @@
 'use server'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { destinoSeguro } from '@/lib/sesion'
+import { cookieActividad, destinoSeguro } from '@/lib/sesion'
 
 export type EstadoFormulario = { error?: string; ok?: string }
 
@@ -23,6 +24,9 @@ export async function ingresar(_: EstadoFormulario, formulario: FormData): Promi
     if (error.status === 429) return { error: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.' }
     return { error: 'El correo o la contraseña no coinciden.' }
   }
+  // Empieza a contar la inactividad desde el ingreso (sin esta marca el proxy cierra la sesión).
+  const almacen = await cookies()
+  almacen.set(cookieActividad(process.env.NODE_ENV === 'production'))
   redirect(destinoSeguro(datos.data.siguiente))
 }
 

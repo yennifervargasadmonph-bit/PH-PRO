@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { crearClienteServidor } from '@/lib/supabase/server'
-import { destinoSeguro } from '@/lib/sesion'
+import { cookieActividad, destinoSeguro } from '@/lib/sesion'
 
 // Destino de los enlaces que envía el proveedor (recuperación de contraseña, invitaciones).
 export async function GET(request: NextRequest) {
@@ -19,5 +19,8 @@ export async function GET(request: NextRequest) {
       : { error: new Error('Enlace incompleto') }
 
   if (error) return NextResponse.redirect(new URL('/ingresar?motivo=enlace', request.url))
-  return NextResponse.redirect(new URL(siguiente, request.url))
+  // El enlace del correo también inicia sesión: empieza a contar la inactividad.
+  const r = NextResponse.redirect(new URL(siguiente, request.url))
+  r.cookies.set(cookieActividad(request.nextUrl.protocol === 'https:'))
+  return r
 }

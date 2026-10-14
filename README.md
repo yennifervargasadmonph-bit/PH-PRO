@@ -52,6 +52,18 @@ Regla de la casa: **la IA propone, la administración decide**.
   exige que el correo confirmado de la sesión sea el invitado (sin distinguir mayúsculas).
 - Pruebas: `tests/db/invitaciones.test.ts`.
 
+### Cierre de sesión por inactividad
+
+- La cookie `phpro_ultima_actividad` (httpOnly) se fija al ingresar con contraseña y al entrar por un enlace
+  del correo, y `proxy.ts` la renueva en cada solicitud (ventana deslizante de 30 minutos). Si falta o
+  pasaron más de 30 minutos, el proxy cierra la sesión.
+- Como la cookie vive en el navegador, configura también el límite en Supabase para que la sesión venza
+  del lado del servidor aunque alguien conserve los tokens: Authentication > Sessions (requiere plan Pro):
+  - **Inactivity timeout:** `30m` (igual a `MINUTOS_INACTIVIDAD` en `lib/sesion.ts`).
+  - **Time-box user sessions:** `12h` (una jornada; después se pide ingresar de nuevo).
+  - Opcional: **Single session per user**.
+- Authentication > Settings: deja el **JWT expiry** en 3600 s o menos.
+
 - Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
 
 ## Tecnología

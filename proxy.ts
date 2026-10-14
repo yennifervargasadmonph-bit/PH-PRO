@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { COOKIE_ACTIVIDAD, MINUTOS_INACTIVIDAD, RUTAS_SIN_MFA, esRutaPublica, sesionVencida } from '@/lib/sesion'
+import { COOKIE_ACTIVIDAD, RUTAS_SIN_MFA, cookieActividad, esRutaPublica, sesionVencida } from '@/lib/sesion'
 
 // Corre antes de cada página: renueva la sesión, exige inicio de sesión,
 // aplica el cierre por inactividad y la verificación en dos pasos.
@@ -64,13 +64,8 @@ export async function proxy(request: NextRequest) {
 
   if (ruta === '/ingresar' || ruta === '/recuperar') return redirigir('/central')
 
-  respuesta.cookies.set(COOKIE_ACTIVIDAD, String(Date.now()), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: request.nextUrl.protocol === 'https:',
-    path: '/',
-    maxAge: MINUTOS_INACTIVIDAD * 60 * 4,
-  })
+  // Cierre por inactividad deslizante: cada solicitud renueva la marca de actividad.
+  respuesta.cookies.set(cookieActividad(request.nextUrl.protocol === 'https:'))
   return respuesta
 }
 
