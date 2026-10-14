@@ -91,3 +91,28 @@ export function comoAal1<T extends pg.QueryResultRow = pg.QueryResultRow>(db: pg
 export async function activarFactor(db: pg.Client, usuario: string, estado: 'verified' | 'unverified' = 'verified') {
   await db.query(`insert into auth.mfa_factors (user_id, status) values ($1, $2)`, [usuario, estado])
 }
+
+/**
+ * Lleva a una persona al equipo como en la aplicación: la administración la invita
+ * y ella acepta con su propia sesión. Opcionalmente le da acceso a una copropiedad.
+ */
+export async function unirAOrganizacion(
+  db: pg.Client,
+  admin: string,
+  org: string,
+  usuario: string,
+  opciones: { rol?: 'miembro' | 'administrador'; copropiedad?: string; rolCopropiedad?: string } = {},
+) {
+  const correo = (await db.query('select email from auth.users where id = $1', [usuario])).rows[0].email as string
+  const token = (
+    await como(db, admin, 'select invitar_persona($1, $2, $3, $4, $5) as t', [
+      org,
+      correo,
+      opciones.rol ?? 'miembro',
+      opciones.copropiedad ?? null,
+      opciones.rolCopropiedad ?? null,
+    ])
+  ).rows[0].t as string
+  await como(db, usuario, 'select aceptar_invitacion($1)', [token])
+  return token
+}

@@ -13,7 +13,8 @@ Regla de la casa: **la IA propone, la administración decide**.
 - Bitácora inmutable de cambios.
 - Pruebas automáticas de fuga entre organizaciones y copropiedades en cada cambio (`tests/db`).
 - Roles por copropiedad (administradora, auxiliar, contador, revisor fiscal, consejo, portería) con permisos por módulo según la matriz de la Fase 0.
-- Equipo: agregar personas con cuenta y asignarles copropiedades y roles.
+- Equipo por invitación: la administración invita por correo (opcionalmente con una copropiedad y un rol),
+  ve las invitaciones pendientes y las puede revocar; la persona acepta con su sesión iniciada.
 - Unidades con coeficientes, control de que sumen 100 %, edición e inactivación (nada se borra).
 - Importación de unidades desde Excel (.xlsx) o CSV: mapeo de columnas, validación, vista previa
   (nuevas, actualizadas, sin cambios y rechazadas), aprobación de la administración y registro de cada importación.
@@ -36,6 +37,21 @@ Regla de la casa: **la IA propone, la administración decide**.
   entrega datos.
 - `tests/db/mfa.test.ts` falla si una tabla nueva no tiene la política o si una función `security definer`
   del esquema público no llama a `app.exigir_mfa()`.
+### Equipo por invitación
+
+- El correo del perfil (`perfiles.correo`) no lo puede editar la persona: se copia de `auth.users` con un
+  trigger. Solo `perfiles.nombre` es editable.
+- Nadie se agrega directamente a una organización. La administración crea una invitación
+  (`invitar_persona`) y siempre recibe el mismo mensaje: «Si el correo corresponde a una cuenta o se
+  registra, recibirá la invitación». La base no consulta si el correo tiene cuenta.
+- **Envío de la invitación:** este proyecto no tiene correo transaccional propio, así que la pantalla
+  Equipo muestra el enlace (`/invitacion?token=…`) para copiarlo y enviarlo por correo o WhatsApp. Se ve una
+  sola vez (en la base solo queda el SHA-256 del token), vence a los 7 días y sirve una vez.
+- La persona abre el enlace, ingresa (si no tiene cuenta, se la crea quien administra el proyecto de
+  Supabase en Authentication > Users > Invite user, con el mismo correo) y acepta. `aceptar_invitacion`
+  exige que el correo confirmado de la sesión sea el invitado (sin distinguir mayúsculas).
+- Pruebas: `tests/db/invitaciones.test.ts`.
+
 - Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
 
 ## Tecnología
@@ -51,7 +67,8 @@ Regla de la casa: **la IA propone, la administración decide**.
    (o usa `supabase db push` con la CLI de Supabase).
 3. En Authentication:
    - URL Configuration: agrega `https://TU-DOMINIO/auth/confirmar` a las URL de redirección.
-   - Desactiva el registro abierto (Sign ups). Las cuentas se crean desde Authentication > Users > Invite user.
+   - Desactiva el registro abierto (Sign ups). Las cuentas se crean desde Authentication > Users > Invite user;
+     luego la administración las invita al equipo desde PH PRO (ver «Equipo por invitación»).
    - Activa MFA con TOTP.
 4. Copia `.env.example` como `.env.local` y completa la URL y la llave publicable del proyecto.
 5. `npm install` y `npm run dev`. La aplicación queda en http://localhost:3000.

@@ -1,10 +1,12 @@
 import { notFound } from 'next/navigation'
 import { esAdministrador, misOrganizaciones, usuarioActual } from '@/lib/datos'
 import { ROLES_COPROPIEDAD } from '@/lib/roles'
-import { quitarAcceso } from './acciones'
-import { FormularioAcceso, FormularioMiembro } from './formularios'
+import { quitarAcceso, revocarInvitacion } from './acciones'
+import { FormularioAcceso, FormularioInvitacion } from './formularios'
 
 export const metadata = { title: 'Equipo' }
+
+const estaVencida = (iso: string) => new Date(iso).getTime() <= Date.now()
 
 const ROL_ORG = { propietario: 'Propietario', administrador: 'Administrador', miembro: 'Miembro' } as const
 
@@ -12,11 +14,18 @@ export default async function Equipo() {
   const org = (await misOrganizaciones())[0]
   if (!org || !esAdministrador(org)) notFound()
   const { supabase } = await usuarioActual()
-  const [{ data: miembros }, { data: copropiedades }, { data: accesos }] = await Promise.all([
+  const [{ data: miembros }, { data: copropiedades }, { data: accesos }, { data: invitaciones }] = await Promise.all([
     supabase.from('miembros_organizacion').select('usuario_id, rol, perfiles (nombre, correo)').eq('organizacion_id', org.id),
     supabase.from('copropiedades').select('id, nombre').eq('organizacion_id', org.id).eq('activa', true).order('nombre'),
     supabase.from('accesos_copropiedad').select('usuario_id, copropiedad_id, rol'),
+    supabase
+      .from('invitaciones')
+      .select('id, correo, rol, copropiedad_id, rol_copropiedad, expira_en')
+      .eq('organizacion_id', org.id)
+      .eq('estado', 'pendiente')
+      .order('creado_en', { ascending: false }),
   ])
+  const fecha = new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' })
   const personas = (miembros ?? []).map((m) => {
     const p = m.perfiles as unknown as { nombre: string; correo: string } | null
     return { id: m.usuario_id as string, rol: m.rol as keyof typeof ROL_ORG, correo: p?.correo ?? '', nombre: p?.nombre || p?.correo || 'Sin nombre' }
@@ -52,8 +61,43 @@ export default async function Equipo() {
           </tbody>
         </table>
       </div>
+      {(invitaciones ?? []).length > 0 && (
+        <section className="seccion">
+          <h2>Invitaciones pendientes</h2>
+          <div className="tabla-caja">
+            <table className="tabla tarjetas-movil">
+              <thead><tr><th>Correo</th><th>Rol</th><th>Vence</th><th></th></tr></thead>
+              <tbody>
+                {(invitaciones ?? []).map((i) => {
+                  const vencida = estaVencida(i.expira_en)
+                  return (
+                    <tr key={i.id}>
+                      <td data-titulo><strong>{i.correo}</strong></td>
+                      <td data-label="Rol">
+                        {ROL_ORG[i.rol as keyof typeof ROL_ORG]}
+                        {i.copropiedad_id && (
+                          <> · {nombreCopro.get(i.copropiedad_id) ?? 'Copropiedad'} ({ROLES_COPROPIEDAD[i.rol_copropiedad as keyof typeof ROLES_COPROPIEDAD] ?? i.rol_copropiedad})</>
+                        )}
+                      </td>
+                      <td data-label="Vence">{vencida ? <span className="etiqueta gris">Vencida</span> : fecha.format(new Date(i.expira_en))}</td>
+                      <td>
+                        <form action={revocarInvitacion.bind(null, i.id)}>
+                          <button className="boton secundario pequeno">Revocar</button>
+                        </form>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
       <div className="rejilla seccion" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))' }}>
-        <section className="panel"><h2>Agregar persona</h2><FormularioMiembro organizacionId={org.id} /></section>
+        <section className="panel">
+          <h2>Invitar persona</h2>
+          <FormularioInvitacion organizacionId={org.id} copropiedades={copropiedades ?? []} />
+        </section>
         <section className="panel">
           <h2>Asignar acceso a una copropiedad</h2>
           <FormularioAcceso personas={personas.filter((p) => p.rol === 'miembro')} copropiedades={copropiedades ?? []} />

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type pg from 'pg'
 import { calcularDv } from '@/lib/identidad'
-import { como, crearBaseDePrueba, crearUsuario } from './helpers'
+import { como, crearBaseDePrueba, crearUsuario, unirAOrganizacion } from './helpers'
 
 // Identidad de cada copropiedad: NIT con dígito de verificación, nombre completo,
 // celular, edición solo por la administración, bitácora y logos en el bucket privado.
@@ -28,8 +28,7 @@ beforeAll(async () => {
 
   // La administradora de la copropiedad NO es administradora de la organización.
   for (const [quien, rol] of [['adminCopro', 'administradora'], ['auxiliar', 'auxiliar'], ['consejo', 'consejo'], ['porteria', 'porteria']] as const) {
-    await como(db, u.dueno, `select agregar_miembro($1, $2)`, [org, `${quien}@ejemplo.co`])
-    await como(db, u.dueno, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, $3)`, [copro.alamos, u[quien], rol])
+    await unirAOrganizacion(db, u.dueno, org, u[quien], { copropiedad: copro.alamos, rolCopropiedad: rol })
   }
 }, 60_000)
 

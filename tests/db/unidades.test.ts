@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type pg from 'pg'
-import { como, crearBaseDePrueba, crearUsuario } from './helpers'
+import { como, crearBaseDePrueba, crearUsuario, unirAOrganizacion } from './helpers'
 
 // Sprint 2: permisos por rol y módulo, marca, unidades e importación.
 
@@ -23,8 +23,7 @@ beforeAll(async () => {
   copro.ajena = await crear(u.otra, orgB, 'Ajena', 'AJ')
 
   for (const [quien, rol] of [['auxiliar', 'auxiliar'], ['porteria', 'porteria'], ['consejo', 'consejo'], ['revisor', 'revisor_fiscal']] as const) {
-    await como(db, u.admin, `select agregar_miembro($1, $2)`, [org, `${quien}@ejemplo.co`])
-    await como(db, u.admin, `insert into accesos_copropiedad (copropiedad_id, usuario_id, rol) values ($1, $2, $3)`, [copro.alamos, u[quien], rol])
+    await unirAOrganizacion(db, u.admin, org, u[quien], { copropiedad: copro.alamos, rolCopropiedad: rol })
   }
 
   await como(db, u.admin, `insert into unidades (copropiedad_id, torre, numero, coeficiente) values ($1, '1', '101', 50), ($1, '1', '102', 50)`, [copro.alamos])
@@ -41,19 +40,6 @@ const filas = [
   { torre: '1', numero: '102', tipo: 'apartamento', coeficiente: 50 }, // igual
   { torre: '2', numero: '201', tipo: 'apartamento', coeficiente: 10, area_m2: 72.5 }, // nueva
 ]
-
-describe('equipo', () => {
-  it('solo se agregan personas con cuenta existente', async () => {
-    const org = (await como(db, u.admin, 'select id from organizaciones')).rows[0].id
-    await expect(como(db, u.admin, `select agregar_miembro($1, 'nadie@ejemplo.co')`, [org])).rejects.toThrow(/No hay una cuenta/)
-  })
-
-  it('solo la administración agrega personas', async () => {
-    const org = (await como(db, u.admin, 'select id from organizaciones')).rows[0].id
-    await expect(como(db, u.auxiliar, `select agregar_miembro($1, 'suelto@ejemplo.co')`, [org])).rejects.toThrow(/Solo la administración/)
-    await expect(como(db, u.otra, `select agregar_miembro($1, 'otra@ejemplo.co')`, [org])).rejects.toThrow(/Solo la administración/)
-  })
-})
 
 describe('permisos por rol', () => {
   it('cada rol recibe los permisos de la matriz', async () => {
