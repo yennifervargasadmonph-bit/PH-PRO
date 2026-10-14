@@ -18,7 +18,7 @@ export type OpcionesCsp = {
   /** En desarrollo Next necesita eval para recargar en caliente, y no hay HTTPS. */
   desarrollo?: boolean
   /** Orígenes extra del CAPTCHA, si está configurado. */
-  captcha?: { scripts: string[]; marcos: string[]; conexiones: string[] } | null
+  captcha?: { scripts: string[]; marcos: string[]; conexiones: string[]; estilos?: string[] } | null
 }
 
 /** Nonce aleatorio por solicitud (base64 de un UUID v4, como en la guía de Next.js). */
@@ -47,7 +47,7 @@ export function construirCsp({ nonce, supabaseUrl, desarrollo = false, captcha =
   const directivas: [string, string[]][] = [
     ['default-src', ["'self'"]],
     ['script-src', ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'", ...(desarrollo ? ["'unsafe-eval'"] : []), ...(captcha?.scripts ?? [])]],
-    ['style-src', ["'self'", "'unsafe-inline'"]],
+    ['style-src', ["'self'", "'unsafe-inline'", ...(captcha?.estilos ?? [])]],
     ['img-src', ["'self'", 'blob:', 'data:', ...(supa ? [supa.http] : [])]],
     ['font-src', ["'self'"]],
     ['connect-src', ["'self'", ...(supa ? [supa.http, supa.ws] : []), ...(captcha?.conexiones ?? [])]],

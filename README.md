@@ -87,6 +87,22 @@ Regla de la casa: **la IA propone, la administración decide**.
   correos, celulares, documentos, nombres de residentes ni texto libre. `tests/db/bitacora.test.ts` falla si
   una tabla con el trigger de bitácora no tiene campos declarados.
 
+### Contraseñas y abuso (configuración de Supabase)
+
+El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador; la regla real la pone Supabase:
+
+- Authentication > Providers > Email (o Settings > Password): **Minimum password length = 12** y
+  **Password requirements** con minúsculas, mayúsculas, dígitos y símbolos.
+- **Leaked password protection** (HaveIBeenPwned) activada (plan Pro).
+- Authentication > Bot and Abuse Protection: **Enable CAPTCHA protection** con Cloudflare Turnstile o
+  hCaptcha y su llave secreta. Luego pon en `.env.local` (y en el hosting)
+  `NEXT_PUBLIC_CAPTCHA_PROVEEDOR=turnstile` (o `hcaptcha`) y `NEXT_PUBLIC_CAPTCHA_SITE_KEY=<llave del sitio>`.
+  Con esas variables, ingreso y recuperación de contraseña muestran el widget y envían el token a Supabase
+  (`lib/captcha.ts`, `components/captcha.tsx`) y la CSP agrega los orígenes del proveedor. Sin ellas los
+  formularios funcionan sin CAPTCHA. Activa las dos cosas a la vez: si Supabase exige CAPTCHA y la
+  aplicación no lo envía, nadie podrá ingresar.
+- Authentication > Rate Limits: deja los límites por defecto o más estrictos.
+
 - Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
 
 ## Tecnología

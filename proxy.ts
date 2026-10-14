@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { configCaptcha } from '@/lib/captcha'
 import { encabezadosSeguridad, generarNonce } from '@/lib/encabezados'
 import { COOKIE_ACTIVIDAD, RUTAS_SIN_MFA, cookieActividad, esRutaPublica, sesionVencida } from '@/lib/sesion'
 
@@ -11,7 +12,12 @@ export async function proxy(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
   const nonce = generarNonce()
-  const seguridad = encabezadosSeguridad({ nonce, supabaseUrl: url, desarrollo: process.env.NODE_ENV === 'development' })
+  const seguridad = encabezadosSeguridad({
+    nonce,
+    supabaseUrl: url,
+    desarrollo: process.env.NODE_ENV === 'development',
+    captcha: configCaptcha()?.csp,
+  })
   const proteger = <T extends NextResponse>(r: T) => {
     Object.entries(seguridad).forEach(([k, v]) => r.headers.set(k, v))
     return r
