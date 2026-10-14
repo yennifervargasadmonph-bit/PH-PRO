@@ -1,25 +1,41 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { encabezadosSeguridad, generarNonce } from '@/lib/encabezados'
 import { COOKIE_ACTIVIDAD, RUTAS_SIN_MFA, cookieActividad, esRutaPublica, sesionVencida } from '@/lib/sesion'
 
-// Corre antes de cada página: renueva la sesión, exige inicio de sesión,
-// aplica el cierre por inactividad y la verificación en dos pasos.
+// Corre antes de cada página: pone los encabezados de seguridad (CSP con nonce), renueva
+// la sesión, exige inicio de sesión, aplica el cierre por inactividad y la verificación en dos pasos.
 export async function proxy(request: NextRequest) {
   const ruta = request.nextUrl.pathname
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-  if (!url || !key) {
-    if (ruta === '/sin-configurar') return NextResponse.next()
-    return NextResponse.redirect(new URL('/sin-configurar', request.url))
+
+  const nonce = generarNonce()
+  const seguridad = encabezadosSeguridad({ nonce, supabaseUrl: url, desarrollo: process.env.NODE_ENV === 'development' })
+  const proteger = <T extends NextResponse>(r: T) => {
+    Object.entries(seguridad).forEach(([k, v]) => r.headers.set(k, v))
+    return r
+  }
+  // Next.js lee el nonce de la CSP de la solicitud y lo pone en sus propios scripts.
+  const continuar = () => {
+    const h = new Headers(request.headers)
+    h.set('x-nonce', nonce)
+    h.set('Content-Security-Policy', seguridad['Content-Security-Policy'])
+    return proteger(NextResponse.next({ request: { headers: h } }))
   }
 
-  let respuesta = NextResponse.next({ request })
+  if (!url || !key) {
+    if (ruta === '/sin-configurar') return continuar()
+    return proteger(NextResponse.redirect(new URL('/sin-configurar', request.url)))
+  }
+
+  let respuesta = continuar()
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
       setAll(porGuardar, encabezados) {
         porGuardar.forEach(({ name, value }) => request.cookies.set(name, value))
-        respuesta = NextResponse.next({ request })
+        respuesta = continuar()
         porGuardar.forEach(({ name, value, options }) => respuesta.cookies.set(name, value, options))
         Object.entries(encabezados ?? {}).forEach(([k, v]) => respuesta.headers.set(k, v))
       },
@@ -33,7 +49,7 @@ export async function proxy(request: NextRequest) {
     Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v))
     const r = NextResponse.redirect(u)
     respuesta.cookies.getAll().forEach((c) => r.cookies.set(c))
-    return r
+    return proteger(r)
   }
 
   if (!conSesion) {

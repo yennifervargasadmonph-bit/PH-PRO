@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { connection } from 'next/server'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export const viewport: Viewport = {
   themeColor: '#0c3b26',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // La CSP lleva un nonce distinto en cada solicitud: todas las páginas se generan al
+  // momento (una página prearmada no tendría el nonce y sus scripts quedarían bloqueados).
+  await connection()
   return (
     <html lang="es-CO">
       <body>{children}</body>

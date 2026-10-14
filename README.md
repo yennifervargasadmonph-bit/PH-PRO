@@ -64,6 +64,16 @@ Regla de la casa: **la IA propone, la administración decide**.
   - Opcional: **Single session per user**.
 - Authentication > Settings: deja el **JWT expiry** en 3600 s o menos.
 
+### Encabezados HTTP
+
+- `proxy.ts` pone en cada página una Content-Security-Policy con nonce por solicitud
+  (`lib/encabezados.ts`, guía de CSP de Next.js): scripts solo con el nonce y `'strict-dynamic'`,
+  `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` y `connect-src`
+  limitado a la propia aplicación y al proyecto de Supabase (HTTPS y websocket). Por eso todas las páginas
+  se generan al momento (`connection()` en `app/layout.tsx`).
+- `next.config.ts` agrega `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`,
+  `X-Frame-Options` y `Permissions-Policy` también a los archivos estáticos.
+
 - Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
 
 ## Tecnología
