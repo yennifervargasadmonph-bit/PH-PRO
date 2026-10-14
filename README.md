@@ -38,6 +38,8 @@ Regla de la casa: **la IA propone, la administración decide**.
   entrega datos.
 - `tests/db/mfa.test.ts` falla si una tabla nueva no tiene la política o si una función `security definer`
   del esquema público no llama a `app.exigir_mfa()`.
+- Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
+
 ### Equipo por invitación
 
 - El correo del perfil (`perfiles.correo`) no lo puede editar la persona: se copia de `auth.users` con un
@@ -118,8 +120,6 @@ El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador;
   solo corre en `npm run lint` con patrones del propio repositorio, nunca en la aplicación. Dependabot
   propondrá la actualización cuando exista.
 
-- Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
-
 ## Tecnología
 
 - Next.js 16 con React y TypeScript.
@@ -157,4 +157,7 @@ También falla si alguien crea una tabla sin RLS.
 
 - Toda tabla con datos de una copropiedad lleva `copropiedad_id`, RLS activo y políticas que usen
   `app.puede_ver_copropiedad()` o `app.es_admin_org()`.
+- Además, la política restrictiva `exigir_mfa` (ver «Verificación en dos pasos») y, si tiene bitácora, sus
+  campos no personales en `app.bitacora_campos`. Toda función `security definer` del esquema público
+  empieza con `perform app.exigir_mfa();`.
 - Agrega sus casos a `tests/db/aislamiento.test.ts` antes de construir pantallas.
