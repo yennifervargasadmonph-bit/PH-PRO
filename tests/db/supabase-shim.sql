@@ -23,7 +23,19 @@ grant usage on schema public to anon, authenticated;
 create table if not exists auth.users (
   id uuid primary key,
   email text,
+  email_confirmed_at timestamptz default now(),
   raw_user_meta_data jsonb default '{}'::jsonb
+);
+
+-- Factores de verificación en dos pasos (Supabase Auth MFA). Solo las columnas que se usan.
+create table if not exists auth.mfa_factors (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  friendly_name text,
+  factor_type text not null default 'totp',
+  status text not null default 'unverified' check (status in ('unverified', 'verified')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create or replace function auth.uid() returns uuid language sql stable as $$
@@ -33,6 +45,15 @@ create or replace function auth.uid() returns uuid language sql stable as $$
   ), '')::uuid;
 $$;
 grant execute on function auth.uid() to anon, authenticated;
+
+-- Claims completos del JWT (incluye "aal": aal1 sin segundo paso, aal2 con él).
+create or replace function auth.jwt() returns jsonb language sql stable as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim', true), ''),
+    nullif(current_setting('request.jwt.claims', true), '')
+  )::jsonb;
+$$;
+grant execute on function auth.jwt() to anon, authenticated;
 
 -- Almacenamiento (Supabase Storage): solo las tablas y columnas que usan las
 -- migraciones y las pruebas. Las políticas de storage.objects las crean las migraciones.

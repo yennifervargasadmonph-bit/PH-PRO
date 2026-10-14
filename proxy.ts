@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { COOKIE_ACTIVIDAD, MINUTOS_INACTIVIDAD, esRutaPublica, sesionVencida } from '@/lib/sesion'
+import { COOKIE_ACTIVIDAD, MINUTOS_INACTIVIDAD, RUTAS_SIN_MFA, esRutaPublica, sesionVencida } from '@/lib/sesion'
 
 // Corre antes de cada página: renueva la sesión, exige inicio de sesión,
 // aplica el cierre por inactividad y la verificación en dos pasos.
@@ -48,10 +48,18 @@ export async function proxy(request: NextRequest) {
     return r
   }
 
-  // Verificación en dos pasos: si la persona la activó, exige el código en cada sesión.
-  if (data?.claims?.aal === 'aal1' && ruta !== '/verificar' && ruta !== '/salir') {
+  // Verificación en dos pasos. La base de datos la exige con RLS (sin aal2 no entrega
+  // datos); aquí solo se lleva a la persona a la pantalla que corresponde.
+  if (data?.claims?.aal !== 'aal2' && !RUTAS_SIN_MFA.includes(ruta)) {
+    // Ya la activó: debe escribir el código en cada sesión.
     const { data: nivel } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
     if (nivel?.nextLevel === 'aal2' && nivel.currentLevel !== 'aal2') return redirigir('/verificar')
+    // Su rol la exige (administradora, auxiliar, contador, revisor fiscal o administración de
+    // la organización) y aún no la ha activado: primero la activa.
+    if (ruta !== '/seguridad') {
+      const { data: pendiente } = await supabase.rpc('mfa_pendiente')
+      if (pendiente === true) return redirigir('/seguridad', { obligatoria: '1' })
+    }
   }
 
   if (ruta === '/ingresar' || ruta === '/recuperar') return redirigir('/central')

@@ -6,6 +6,9 @@ export const COOKIE_COPROPIEDAD = 'phpro_copropiedad_activa'
 /** Rutas que se pueden ver sin sesión iniciada. */
 export const RUTAS_PUBLICAS = ['/ingresar', '/recuperar', '/auth/confirmar']
 
+/** Rutas con sesión a las que se puede llegar sin haber hecho el segundo paso. */
+export const RUTAS_SIN_MFA = ['/verificar', '/salir']
+
 export function esRutaPublica(ruta: string) {
   return RUTAS_PUBLICAS.some((r) => ruta === r || ruta.startsWith(`${r}/`))
 }

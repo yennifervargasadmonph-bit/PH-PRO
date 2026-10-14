@@ -22,6 +22,22 @@ Regla de la casa: **la IA propone, la administración decide**.
   (`components/membrete.tsx`: `<Membrete/>` y `<PieInstitucional/>`; lo que falte sale como «Dato faltante»).
   Los logos van al bucket privado `marcas` de Supabase Storage (`<copropiedad_id>/logo.<ext>`, máx. 2 MB).
 
+## Seguridad
+
+### Verificación en dos pasos (exigida por la base de datos)
+
+- Quien tiene un factor verificado debe usar una sesión `aal2` (contraseña + código) para leer o escribir
+  cualquier dato. Para administradora, auxiliar, contador, revisor fiscal y la administración de la
+  organización (propietario o administrador) es obligatoria aunque no la hayan activado.
+- Se aplica con la política restrictiva `exigir_mfa` en todas las tablas de `public` y en `storage.objects`,
+  y con `app.exigir_mfa()` dentro de cada función `security definer`
+  (`supabase/migrations/20261014000001_mfa_obligatoria.sql`). La aplicación (`proxy.ts`) solo lleva a la
+  persona a `/verificar` o a `/seguridad?obligatoria=1`; aunque alguien se salte la aplicación, la base no
+  entrega datos.
+- `tests/db/mfa.test.ts` falla si una tabla nueva no tiene la política o si una función `security definer`
+  del esquema público no llama a `app.exigir_mfa()`.
+- Ninguna acción del servidor usa la llave `service_role`: todo se ejecuta con la sesión de la persona.
+
 ## Tecnología
 
 - Next.js 16 con React y TypeScript.
