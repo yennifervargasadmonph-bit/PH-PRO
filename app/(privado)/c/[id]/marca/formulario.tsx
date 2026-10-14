@@ -2,7 +2,7 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Membrete, PieInstitucional } from '@/components/membrete'
-import { LOGO_MAX_BYTES, LOGO_MAX_LADO, LOGO_TIPOS, faltantesIdentidad, listarEnEspanol, normalizarCelular, validarNit, type Identidad } from '@/lib/identidad'
+import { LOGO_FORMATOS, LOGO_MAX_BYTES, LOGO_MAX_LADO, LOGO_TIPOS, faltantesIdentidad, listarEnEspanol, normalizarCelular, validarNit, type Identidad } from '@/lib/identidad'
 import { guardarIdentidad, quitarLogo, subirLogo, type Estado } from './acciones'
 
 type Campos = {
@@ -19,10 +19,10 @@ type Campos = {
 
 /**
  * Reduce el logo a máximo 512 px de lado en el navegador, conservando la transparencia
- * (nunca se pinta un fondo ni se recorta). Los SVG y los logos pequeños pasan tal cual.
+ * (nunca se pinta un fondo ni se recorta). Los logos pequeños pasan tal cual.
  */
 async function prepararLogo(archivo: File): Promise<File> {
-  if (archivo.type === 'image/svg+xml' || typeof createImageBitmap === 'undefined') return archivo
+  if (typeof createImageBitmap === 'undefined') return archivo
   try {
     const imagen = await createImageBitmap(archivo)
     const lado = Math.max(imagen.width, imagen.height)
@@ -37,7 +37,7 @@ async function prepararLogo(archivo: File): Promise<File> {
     ctx.drawImage(imagen, 0, 0, lienzo.width, lienzo.height)
     const blob = await new Promise<Blob | null>((ok) => lienzo.toBlob(ok, archivo.type, 0.92))
     // Si el navegador no sabe codificar ese formato, devuelve PNG (que también conserva la transparencia).
-    if (!blob || !(blob.type in LOGO_TIPOS) || blob.size >= archivo.size) return archivo
+    if (!blob || !Object.hasOwn(LOGO_TIPOS, blob.type) || blob.size >= archivo.size) return archivo
     const extension = LOGO_TIPOS[blob.type as keyof typeof LOGO_TIPOS]
     return new File([blob], `logo.${extension}`, { type: blob.type })
   } catch {
@@ -61,7 +61,7 @@ function CargaLogo({ copropiedadId, logoUrl, editable, onVistaPrevia }: { coprop
     const original = e.target.files?.[0]
     e.target.value = ''
     if (!original) return
-    if (!(original.type in LOGO_TIPOS)) return setEstado({ error: 'El logo debe ser una imagen PNG, JPG, WEBP o SVG.' })
+    if (!Object.hasOwn(LOGO_TIPOS, original.type)) return setEstado({ error: `El logo debe ser una imagen ${LOGO_FORMATOS}.` })
     iniciar(async () => {
       const archivo = await prepararLogo(original)
       if (archivo.size > LOGO_MAX_BYTES) {
@@ -107,7 +107,7 @@ function CargaLogo({ copropiedadId, logoUrl, editable, onVistaPrevia }: { coprop
               {pendiente ? 'Guardando…' : logoUrl ? 'Cambiar logo' : 'Cargar logo'}
             </button>
             {logoUrl && <button type="button" className="boton secundario" disabled={pendiente} onClick={quitar}>Quitar</button>}
-            <small className="tenue">PNG, JPG, WEBP o SVG, máximo 2 MB. Se conserva la transparencia; se reduce a 512 px si es más grande.</small>
+            <small className="tenue">{LOGO_FORMATOS}, máximo 2 MB. Se conserva la transparencia; se reduce a 512 px si es más grande.</small>
           </div>
         )}
       </div>

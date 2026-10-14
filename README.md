@@ -21,7 +21,8 @@ Regla de la casa: **la IA propone, la administración decide**.
 - Identidad del edificio: logo, nombre completo, NIT (con dígito de verificación DIAN) y celular de la
   administración, más colores, representante legal y contacto. Todos los documentos usan esa identidad
   (`components/membrete.tsx`: `<Membrete/>` y `<PieInstitucional/>`; lo que falte sale como «Dato faltante»).
-  Los logos van al bucket privado `marcas` de Supabase Storage (`<copropiedad_id>/logo.<ext>`, máx. 2 MB).
+  Los logos van al bucket privado `marcas` de Supabase Storage (`<copropiedad_id>/logo.<png|jpg|webp>`, máx. 2 MB;
+  solo PNG, JPG o WEBP, revisando los primeros bytes del archivo; nunca SVG).
 
 ## Seguridad
 

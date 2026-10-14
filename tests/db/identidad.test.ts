@@ -161,14 +161,22 @@ describe('logos en el bucket privado "marcas"', () => {
   const subir = (usuario: string | null, nombre: string) =>
     como(db, usuario, `insert into storage.objects (bucket_id, name, metadata) values ('marcas', $1, '{"mimetype":"image/png"}') returning name`, [nombre])
 
-  it('el bucket es privado, limitado a 2 MB e imágenes', async () => {
+  it('el bucket es privado, limitado a 2 MB e imágenes PNG, JPG y WEBP (sin SVG)', async () => {
     const r = await db.query(`select public, file_size_limit, allowed_mime_types from storage.buckets where id = 'marcas'`)
-    expect(r.rows[0]).toEqual({ public: false, file_size_limit: '2097152', allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] })
+    expect(r.rows[0]).toEqual({ public: false, file_size_limit: '2097152', allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp'] })
+  })
+
+  it('un logo SVG no se puede subir ni registrar', async () => {
+    await expect(subir(u.adminCopro, `${copro.alamos}/logo.svg`)).rejects.toThrow(/row-level security/)
+    await expect(
+      como(db, u.dueno, `update marcas_copropiedad set logo_ruta = $2 where copropiedad_id = $1`, [copro.alamos, `${copro.alamos}/logo.svg`]),
+    ).rejects.toThrow(/marcas_logo_ruta_propia/)
+    expect((await db.query(`select app.copropiedad_de_logo($1) as c`, [`${copro.alamos}/logo.svg`])).rows[0].c).toBeNull()
   })
 
   it('la administración sube el logo en la carpeta de su copropiedad', async () => {
     await subir(u.adminCopro, `${copro.alamos}/logo.png`)
-    await subir(u.dueno, `${copro.santaElena}/logo.svg`)
+    await subir(u.dueno, `${copro.santaElena}/logo.webp`)
     const r = await como(db, u.adminCopro, `update marcas_copropiedad set logo_ruta = $2 where copropiedad_id = $1 returning logo_ruta`, [copro.alamos, `${copro.alamos}/logo.png`])
     expect(r.rows[0].logo_ruta).toBe(`${copro.alamos}/logo.png`)
   })
@@ -189,7 +197,7 @@ describe('logos en el bucket privado "marcas"', () => {
     expect(await ver(u.auxiliar)).toEqual([`${copro.alamos}/logo.png`])
     expect(await ver(u.porteria)).toEqual([])
     expect(await ver(u.otra)).toEqual([])
-    expect((await ver(u.dueno)).sort()).toEqual([`${copro.alamos}/logo.png`, `${copro.santaElena}/logo.svg`].sort())
+    expect((await ver(u.dueno)).sort()).toEqual([`${copro.alamos}/logo.png`, `${copro.santaElena}/logo.webp`].sort())
   })
 
   it('solo la administración reemplaza o borra el logo', async () => {
@@ -197,7 +205,7 @@ describe('logos en el bucket privado "marcas"', () => {
     expect(cambio.rowCount).toBe(0)
     const borrado = await como(db, u.otra, `delete from storage.objects where name = $1`, [`${copro.alamos}/logo.png`])
     expect(borrado.rowCount).toBe(0)
-    const propio = await como(db, u.dueno, `delete from storage.objects where name = $1`, [`${copro.santaElena}/logo.svg`])
+    const propio = await como(db, u.dueno, `delete from storage.objects where name = $1`, [`${copro.santaElena}/logo.webp`])
     expect(propio.rowCount).toBe(1)
   })
 

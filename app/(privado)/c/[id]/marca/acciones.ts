@@ -81,7 +81,7 @@ export async function subirLogo(copropiedadId: string, _: Estado, f: FormData): 
     await supabase.storage.from(BUCKET_MARCAS).remove([ruta])
     return { error: SIN_PERMISO }
   }
-  // Si cambió el formato (por ejemplo de PNG a SVG), el archivo anterior ya no se usa.
+  // Si cambió el formato (por ejemplo de PNG a WEBP), el archivo anterior ya no se usa.
   if (actual.logo_ruta && actual.logo_ruta !== ruta) await supabase.storage.from(BUCKET_MARCAS).remove([actual.logo_ruta])
 
   refrescar(copropiedadId)

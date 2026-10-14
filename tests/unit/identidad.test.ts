@@ -7,6 +7,7 @@ import {
   listarEnEspanol,
   normalizarCelular,
   validarLogo,
+  tipoPorContenido,
   validarNit,
   validarNombreLegal,
 } from '@/lib/identidad'
@@ -91,26 +92,39 @@ describe('logo', () => {
   const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])
   const svg = (s: string) => new TextEncoder().encode(s)
 
-  it('acepta PNG, JPG, WEBP y SVG reales', () => {
+  it('acepta PNG, JPG y WEBP reales', () => {
     expect(validarLogo('image/png', png)).toEqual({ ok: true, extension: 'png' })
     expect(validarLogo('image/jpeg', jpg)).toEqual({ ok: true, extension: 'jpg' })
     expect(validarLogo('image/webp', webp)).toEqual({ ok: true, extension: 'webp' })
-    expect(validarLogo('image/svg+xml', svg('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'))).toEqual({ ok: true, extension: 'svg' })
+  })
+
+  it('reconoce el tipo por los primeros bytes', () => {
+    expect(tipoPorContenido(png)).toBe('image/png')
+    expect(tipoPorContenido(jpg)).toBe('image/jpeg')
+    expect(tipoPorContenido(webp)).toBe('image/webp')
+    expect(tipoPorContenido(svg('<svg/>'))).toBeNull()
+    expect(tipoPorContenido(new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45]))).toBeNull() // RIFF de audio
   })
 
   it('rechaza otros tipos, contenidos que no corresponden y archivos de más de 2 MB', () => {
     expect(validarLogo('application/pdf', png).ok).toBe(false)
     expect(validarLogo('image/gif', png).ok).toBe(false)
     expect(validarLogo('image/png', jpg).ok).toBe(false)
+    expect(validarLogo('image/webp', png).ok).toBe(false)
     expect(validarLogo('image/png', new Uint8Array(0)).ok).toBe(false)
+    expect(validarLogo('toString', png).ok).toBe(false)
     const grande = new Uint8Array(2 * 1024 * 1024 + 1)
     grande.set(png)
     expect(validarLogo('image/png', grande)).toEqual({ ok: false, error: 'El logo no puede pesar más de 2 MB.' })
   })
 
-  it('rechaza SVG con código activo', () => {
+  it('rechaza cualquier SVG, aunque no tenga código', () => {
+    expect(validarLogo('image/svg+xml', svg('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'))).toEqual({
+      ok: false,
+      error: 'El logo debe ser una imagen PNG, JPG o WEBP.',
+    })
     expect(validarLogo('image/svg+xml', svg('<svg><script>alert(1)</script></svg>')).ok).toBe(false)
-    expect(validarLogo('image/svg+xml', svg('<svg onload="x()"></svg>')).ok).toBe(false)
-    expect(validarLogo('image/svg+xml', svg('<svg><a href="javascript:x()"/></svg>')).ok).toBe(false)
+    // Un SVG declarado como PNG tampoco pasa: se revisa el contenido.
+    expect(validarLogo('image/png', svg('<svg onload="x()"></svg>')).ok).toBe(false)
   })
 })

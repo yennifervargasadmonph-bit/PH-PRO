@@ -121,32 +121,28 @@ export const LOGO_TIPOS = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
-  'image/svg+xml': 'svg',
 } as const
 export type TipoLogo = keyof typeof LOGO_TIPOS
+export const LOGO_FORMATOS = 'PNG, JPG o WEBP'
 
 const empiezaCon = (b: Uint8Array, firma: number[], desde = 0) => firma.every((x, i) => b[desde + i] === x)
 
+/** Tipo real de la imagen según sus primeros bytes (firma), o null si no es PNG, JPG ni WEBP. */
+export function tipoPorContenido(bytes: Uint8Array): TipoLogo | null {
+  if (empiezaCon(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png'
+  if (empiezaCon(bytes, [0xff, 0xd8, 0xff])) return 'image/jpeg'
+  if (empiezaCon(bytes, [0x52, 0x49, 0x46, 0x46]) && empiezaCon(bytes, [0x57, 0x45, 0x42, 0x50], 8)) return 'image/webp'
+  return null
+}
+
 /**
- * Revisa un logo antes de guardarlo: tipo permitido, tamaño máximo y que el
- * contenido corresponda de verdad al tipo declarado. Los SVG con código activo se rechazan.
+ * Revisa un logo antes de guardarlo: solo PNG, JPG o WEBP (nunca SVG), tamaño máximo,
+ * y que los primeros bytes del archivo correspondan de verdad al tipo declarado.
  */
 export function validarLogo(tipo: string, bytes: Uint8Array): { ok: true; extension: string } | { ok: false; error: string } {
-  if (!(tipo in LOGO_TIPOS)) return { ok: false, error: 'El logo debe ser una imagen PNG, JPG, WEBP o SVG.' }
+  if (!Object.hasOwn(LOGO_TIPOS, tipo)) return { ok: false, error: `El logo debe ser una imagen ${LOGO_FORMATOS}.` }
   if (bytes.byteLength === 0) return { ok: false, error: 'El archivo del logo está vacío.' }
   if (bytes.byteLength > LOGO_MAX_BYTES) return { ok: false, error: 'El logo no puede pesar más de 2 MB.' }
-  const t = tipo as TipoLogo
-  let coincide = false
-  if (t === 'image/png') coincide = empiezaCon(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-  else if (t === 'image/jpeg') coincide = empiezaCon(bytes, [0xff, 0xd8, 0xff])
-  else if (t === 'image/webp') coincide = empiezaCon(bytes, [0x52, 0x49, 0x46, 0x46]) && empiezaCon(bytes, [0x57, 0x45, 0x42, 0x50], 8)
-  else {
-    const texto = new TextDecoder().decode(bytes)
-    coincide = /<svg[\s>]/i.test(texto)
-    if (coincide && /<script|javascript:|\son[a-z]+\s*=|<foreignObject/i.test(texto)) {
-      return { ok: false, error: 'El SVG contiene código o elementos no permitidos. Exporta el logo como PNG.' }
-    }
-  }
-  if (!coincide) return { ok: false, error: 'El contenido del archivo no corresponde a una imagen válida.' }
-  return { ok: true, extension: LOGO_TIPOS[t] }
+  if (tipoPorContenido(bytes) !== tipo) return { ok: false, error: 'El contenido del archivo no corresponde a una imagen válida.' }
+  return { ok: true, extension: LOGO_TIPOS[tipo as TipoLogo] }
 }
