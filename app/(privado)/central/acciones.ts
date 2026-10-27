@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { z } from 'zod'
 import { usuarioActual } from '@/lib/datos'
 import { COOKIE_COPROPIEDAD } from '@/lib/sesion'
 import { datosFormulario, esquemaCopropiedad, esquemaOrganizacion } from '@/lib/validacion'
@@ -23,6 +24,7 @@ export async function crearCopropiedad(_: Estado, f: FormData): Promise<Estado> 
   const datos = esquemaCopropiedad.safeParse(crudo)
   if (!datos.success) return { error: datos.error.issues[0].message }
   const { nombre_legal, celular, ...copropiedad } = datos.data
+  if (!z.uuid().safeParse(crudo.organizacion_id).success) return { error: 'Elige la organización.' }
   const { supabase } = await usuarioActual()
   const { data: creada, error } = await supabase
     .from('copropiedades')
@@ -43,6 +45,7 @@ export async function crearCopropiedad(_: Estado, f: FormData): Promise<Estado> 
 
 /** Fija la copropiedad activa: todo lo que se haga después ocurre solo en ella. */
 export async function entrarCopropiedad(id: string) {
+  if (!z.uuid().safeParse(id).success) redirect('/central')
   const { supabase } = await usuarioActual()
   const { data } = await supabase.from('copropiedades').select('id').eq('id', id).maybeSingle()
   if (!data) redirect('/central')

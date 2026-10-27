@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { usuarioActual } from '@/lib/datos'
+import { LIMITES, consumir, mensajeLimite } from '@/lib/limite'
 import { validarLogo } from '@/lib/identidad'
 import { BUCKET_MARCAS } from '@/lib/identidad-servidor'
 import { datosFormulario, esquemaIdentidad } from '@/lib/validacion'
@@ -62,7 +63,9 @@ export async function subirLogo(copropiedadId: string, _: Estado, f: FormData): 
   const revision = validarLogo(archivo.type, bytes)
   if (!revision.ok) return { error: revision.error }
 
-  const { supabase } = await usuarioActual()
+  const { supabase, usuario } = await usuarioActual()
+  const limite = await consumir(`logo:usuario:${usuario.id}`, LIMITES.logoUsuario)
+  if (!limite.permitido) return { error: mensajeLimite(limite) }
   const { data: actual, error: errorLectura } = await supabase
     .from('marcas_copropiedad')
     .select('logo_ruta')

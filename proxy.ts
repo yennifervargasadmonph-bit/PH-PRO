@@ -2,10 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { configCaptcha } from '@/lib/captcha'
 import { encabezadosSeguridad, generarNonce } from '@/lib/encabezados'
-import { COOKIE_ACTIVIDAD, RUTAS_SIN_MFA, cookieActividad, esRutaPublica, sesionVencida } from '@/lib/sesion'
+import { LIMITES, consumir, ipCliente, type Veredicto } from '@/lib/limite'
+import { evaluarOrigen, origenesPermitidos } from '@/lib/origen'
+import { COOKIE_ACTIVIDAD, RUTAS_SIN_MFA, cookieActividad, esRutaPublica, sesionExcedeMaximo, sesionVencida } from '@/lib/sesion'
 
-// Corre antes de cada página: pone los encabezados de seguridad (CSP con nonce), renueva
-// la sesión, exige inicio de sesión, aplica el cierre por inactividad y la verificación en dos pasos.
+// Corre antes de cada página: pone los encabezados de seguridad (CSP con nonce), rechaza
+// envíos de otros sitios (CORS/CSRF), limita las solicitudes por IP y por persona, renueva
+// la sesión, exige inicio de sesión, aplica el cierre por inactividad, la duración máxima de
+// la sesión y la verificación en dos pasos.
 export async function proxy(request: NextRequest) {
   const ruta = request.nextUrl.pathname
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -28,6 +32,35 @@ export async function proxy(request: NextRequest) {
     h.set('x-nonce', nonce)
     h.set('Content-Security-Policy', seguridad['Content-Security-Policy'])
     return proteger(NextResponse.next({ request: { headers: h } }))
+  }
+
+  const bloquear = (estado: number, mensaje: string, extra: Record<string, string> = {}) =>
+    proteger(new NextResponse(mensaje, { status: estado, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', ...extra } }))
+  const demasiadas = (v: Veredicto) =>
+    bloquear(429, 'Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.', { 'Retry-After': String(v.reintentarEnSegundos) })
+
+  // CORS y envíos desde otros sitios.
+  const origen = evaluarOrigen({
+    metodo: request.method,
+    origin: request.headers.get('origin'),
+    secFetchSite: request.headers.get('sec-fetch-site'),
+    propio: request.nextUrl.origin,
+    permitidos: origenesPermitidos(process.env.NEXT_PUBLIC_SITE_URL, process.env.ORIGENES_PERMITIDOS),
+  })
+  if (!origen.permitir) return bloquear(origen.estado, 'Solicitud no permitida.')
+
+  // Límite por IP: cualquier solicitud, y más estricto para envíos.
+  const ip = ipCliente(request.headers)
+  const esEnvio = request.method !== 'GET' && request.method !== 'HEAD'
+  const porIp = await consumir(`solicitudes:ip:${ip}`, LIMITES.solicitudesIp)
+  if (!porIp.permitido) return demasiadas(porIp)
+  if (esEnvio) {
+    const envioIp = await consumir(`envio:ip:${ip}`, LIMITES.envioIp)
+    if (!envioIp.permitido) return demasiadas(envioIp)
+  }
+  if (ruta === '/auth/confirmar') {
+    const enlace = await consumir(`enlace:ip:${ip}`, LIMITES.enlaceIp)
+    if (!enlace.permitido) return demasiadas(enlace)
   }
 
   if (!url || !key) {
@@ -63,9 +96,18 @@ export async function proxy(request: NextRequest) {
     return redirigir('/ingresar', ruta === '/' ? {} : { siguiente: ruta + request.nextUrl.search })
   }
 
-  if (sesionVencida(request.cookies.get(COOKIE_ACTIVIDAD)?.value)) {
-    await supabase.auth.signOut()
-    const r = redirigir('/ingresar', { motivo: 'inactividad' })
+  // Límite de envíos por persona (además del de su IP).
+  if (esEnvio) {
+    const envioUsuario = await consumir(`envio:usuario:${data!.claims.sub}`, LIMITES.envioUsuario)
+    if (!envioUsuario.permitido) return demasiadas(envioUsuario)
+  }
+
+  // Inactividad (30 minutos) o jornada cumplida (12 horas desde el ingreso): se cierra la
+  // sesión de este navegador y se pide ingresar de nuevo.
+  const vencida = sesionVencida(request.cookies.get(COOKIE_ACTIVIDAD)?.value)
+  if (vencida || sesionExcedeMaximo(data?.claims?.amr)) {
+    await supabase.auth.signOut({ scope: 'local' })
+    const r = redirigir('/ingresar', { motivo: vencida ? 'inactividad' : 'jornada' })
     r.cookies.delete(COOKIE_ACTIVIDAD)
     return r
   }
