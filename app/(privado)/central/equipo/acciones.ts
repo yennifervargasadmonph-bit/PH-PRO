@@ -1,22 +1,15 @@
 'use server'
 import { revalidatePath } from 'next/cache'
-import { headers } from 'next/headers'
 import { z } from 'zod'
 import { usuarioActual } from '@/lib/datos'
 import { MENSAJE_INVITACION, enlaceInvitacion } from '@/lib/invitaciones'
+import { LIMITES, consumir, mensajeLimite } from '@/lib/limite'
 import { ROLES_COPROPIEDAD } from '@/lib/roles'
+import { FALTA_URL_SITIO, urlSitio } from '@/lib/sitio'
 
 export type Estado = { error?: string; ok?: string; enlace?: string }
 
 const rolCopropiedad = z.enum(Object.keys(ROLES_COPROPIEDAD) as [keyof typeof ROLES_COPROPIEDAD, ...(keyof typeof ROLES_COPROPIEDAD)[]])
-
-async function sitio() {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
-  const h = await headers()
-  const host = h.get('x-forwarded-host') ?? h.get('host') ?? 'localhost:3000'
-  const protocolo = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
-  return `${protocolo}://${host}`
-}
 
 /**
  * Invita a una persona al equipo (y opcionalmente a una copropiedad con un rol).
@@ -24,9 +17,12 @@ async function sitio() {
  * transaccional, la administración recibe el enlace para compartirlo.
  */
 export async function invitarPersona(organizacionId: string, _: Estado, f: FormData): Promise<Estado> {
+  if (!z.uuid().safeParse(organizacionId).success) return { error: 'No tienes permiso para invitar personas a esta organización.' }
+  const sitio = urlSitio()
+  if (!sitio) return { error: FALTA_URL_SITIO }
   const datos = z
     .object({
-      correo: z.email('Escribe un correo válido.'),
+      correo: z.string().max(254, 'Escribe un correo válido.').pipe(z.email('Escribe un correo válido.')),
       rol: z.enum(['miembro', 'administrador']).catch('miembro'),
       copropiedad_id: z.union([z.literal(''), z.uuid()]).catch(''),
       rol_copropiedad: z.union([z.literal(''), rolCopropiedad]).catch(''),
@@ -42,7 +38,9 @@ export async function invitarPersona(organizacionId: string, _: Estado, f: FormD
   const conCopropiedad = rol === 'miembro' && copropiedad_id !== ''
   if (conCopropiedad && !rol_copropiedad) return { error: 'Elige el rol en la copropiedad.' }
 
-  const { supabase } = await usuarioActual()
+  const { supabase, usuario } = await usuarioActual()
+  const limite = await consumir(`invitacion:usuario:${usuario.id}`, LIMITES.invitacionUsuario)
+  if (!limite.permitido) return { error: mensajeLimite(limite) }
   const { data: token, error } = await supabase.rpc('invitar_persona', {
     p_org: organizacionId,
     p_correo: correo,
@@ -55,7 +53,7 @@ export async function invitarPersona(organizacionId: string, _: Estado, f: FormD
     return { error: 'No pudimos crear la invitación. Inténtalo de nuevo.' }
   }
   revalidatePath('/central/equipo')
-  return { ok: MENSAJE_INVITACION, enlace: enlaceInvitacion(await sitio(), token) }
+  return { ok: MENSAJE_INVITACION, enlace: enlaceInvitacion(sitio, token) }
 }
 
 export async function revocarInvitacion(id: string) {
@@ -78,6 +76,7 @@ export async function asignarAcceso(_: Estado, f: FormData): Promise<Estado> {
 }
 
 export async function quitarAcceso(copropiedadId: string, usuarioId: string) {
+  if (!z.uuid().safeParse(copropiedadId).success || !z.uuid().safeParse(usuarioId).success) return
   const { supabase } = await usuarioActual()
   await supabase.from('accesos_copropiedad').delete().eq('copropiedad_id', copropiedadId).eq('usuario_id', usuarioId)
   revalidatePath('/central/equipo')

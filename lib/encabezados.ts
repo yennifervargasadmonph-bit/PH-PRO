@@ -9,6 +9,10 @@ export const ENCABEZADOS_FIJOS: Record<string, string> = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'X-Frame-Options': 'DENY',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  // Otra pestaña abierta desde otro sitio no puede controlar la ventana de PH PRO, y otros
+  // sitios no pueden incrustar sus respuestas.
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
 }
 
 export type OpcionesCsp = {

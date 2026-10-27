@@ -67,6 +67,32 @@ Regla de la casa: **la IA propone, la administración decide**.
   - Opcional: **Single session per user**.
 - Authentication > Settings: deja el **JWT expiry** en 3600 s o menos.
 
+### Límite de intentos, CORS y errores (auditoría del 27/10/2026)
+
+- **Límite de intentos** (`lib/limite.ts`). Por IP: 600 solicitudes por minuto y 60 envíos (POST) por
+  minuto; 10 intentos de ingreso o recuperación de contraseña cada 15 minutos; 20 enlaces del correo cada
+  15 minutos. Por persona: 60 envíos por minuto, 30 invitaciones por hora, 10 intentos de aceptar
+  invitación cada 15 minutos, 20 importaciones y 20 logos por hora. Por correo: 20 intentos de ingreso por
+  hora. Las páginas responden 429 con `Retry-After`; los formularios muestran «Demasiados intentos. Espera
+  N minutos». En producción configura `UPSTASH_REDIS_REST_URL` y `UPSTASH_REDIS_REST_TOKEN` (Upstash,
+  plan gratuito) para que el contador sea compartido entre instancias; sin ellas cada instancia cuenta en
+  su memoria. Supabase Auth aplica además sus propios límites (Authentication > Rate Limits).
+- **IP del cliente:** se toma de `x-vercel-forwarded-for`, `x-real-ip` o el primer valor de
+  `X-Forwarded-For`. Si no se usa Vercel, el proxy del hosting debe reemplazar esos encabezados.
+- **CORS** (`lib/origen.ts`, aplicado en `proxy.ts`). La aplicación nunca envía
+  `Access-Control-Allow-Origin`: otro sitio no puede leer sus respuestas. Las preguntas previas (OPTIONS) y
+  los envíos (POST, PUT, PATCH, DELETE) que vienen de otro origen reciben 403 antes de llegar a las acciones.
+  Solo se aceptan el propio origen, `NEXT_PUBLIC_SITE_URL` y `ORIGENES_PERMITIDOS`. Supabase maneja su
+  propio CORS. También se envían `Cross-Origin-Opener-Policy` y `Cross-Origin-Resource-Policy: same-origin`.
+- **Enlaces:** invitaciones y recuperación de contraseña usan solo `NEXT_PUBLIC_SITE_URL` (nunca el
+  encabezado Host). En producción, si falta, la acción muestra un aviso en lugar de crear el enlace.
+- **Duración máxima de la sesión:** 12 horas desde el ingreso (`HORAS_SESION_MAXIMA`, claim `amr` del
+  token), además del cierre por 30 minutos de inactividad. Configura el mismo valor en Supabase.
+- **Errores:** las acciones responden mensajes genéricos (sin códigos ni textos de la base) y
+  `app/error.tsx` muestra solo un código de referencia; el detalle queda en los registros del servidor.
+- **Membresías:** una membresía o un acceso a copropiedad solo cambia de rol; nunca de persona, de
+  organización ni de copropiedad (`20261027000001_membresias_inmutables.sql`, `tests/db/membresias.test.ts`).
+
 ### Encabezados HTTP
 
 - `proxy.ts` pone en cada página una Content-Security-Policy con nonce por solicitud
@@ -112,8 +138,9 @@ El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador;
   en cada PR, en `main` y cada lunes, con permisos mínimos (`contents: read`, `security-events: write`).
 - En GitHub > Settings > Code security mantén activos **Secret scanning** y **Push protection** (hoy lo
   están) y activa **Dependabot alerts** y **Dependabot security updates**.
-- `npm audit --omit=dev`: 0 vulnerabilidades en producción. `npm audit` reporta 5 «high» en la cadena
-  solo de desarrollo `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
+- 27/10/2026: `next` 16.4.3 y `zod` 4.6.7 corrigen GHSA-2464-fhr4-w9xw y GHSA-673q-mjm6-r5xr (críticas),
+  GHSA-p3m5-59mp-jv5r y GHSA-mrhx-c7xc-m3w5. `npm audit` (producción y desarrollo): 0 vulnerabilidades.
+- Antes (14/10/2026): `npm audit` reportaba 5 «high» en la cadena solo de desarrollo `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
   `braces` (GHSA-vfj7-8cjw-p6xm). No hay versión corregida de `braces` (3.0.3 es la última) y
   `eslint-config-next` 16.4.0 es la más reciente, así que no hay actualización ni `override` seguro; la
   única «solución» de npm es bajar a `eslint-config-next@14`, que no sirve para Next 16. El riesgo es bajo:

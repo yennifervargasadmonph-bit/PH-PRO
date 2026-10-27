@@ -14,6 +14,12 @@ export default async function Ingresar({ searchParams }: { searchParams: Promise
         {motivo === 'inactividad' && (
           <p className="aviso info" style={{ marginBottom: 14 }}>Cerramos tu sesión por 30 minutos sin actividad.</p>
         )}
+        {motivo === 'jornada' && (
+          <p className="aviso info" style={{ marginBottom: 14 }}>Tu sesión cumplió 12 horas. Ingresa de nuevo para continuar.</p>
+        )}
+        {motivo === 'enlace' && (
+          <p className="aviso info" style={{ marginBottom: 14 }}>El enlace no es válido o ya venció. Pide uno nuevo.</p>
+        )}
         <FormularioIngreso siguiente={siguiente} />
       </div>
     </main>

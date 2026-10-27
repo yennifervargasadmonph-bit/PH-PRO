@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { usuarioActual } from '@/lib/datos'
+import { LIMITES, consumir, mensajeLimite } from '@/lib/limite'
 import { TIPOS_UNIDAD } from '@/lib/importacion/unidades'
 
 const fila = z.object({
@@ -15,16 +16,19 @@ const fila = z.object({
 const entrada = z.object({
   archivo: z.string().max(200),
   filas: z.array(fila).min(1).max(5000),
-  rechazos: z.array(z.object({ fila: z.number(), motivo: z.string().max(200) })).max(5000),
+  rechazos: z.array(z.object({ fila: z.number().int().nonnegative(), motivo: z.string().max(200) })).max(5000),
 })
 
 export type Resultado = { error?: string; nuevas?: number; actualizadas?: number; sin_cambios?: number; rechazadas?: number }
 
 /** Aplica la importación ya revisada. La base de datos vuelve a comprobar permisos y datos. */
 export async function aplicarImportacion(copropiedadId: string, datos: unknown): Promise<Resultado> {
+  if (!z.uuid().safeParse(copropiedadId).success) return { error: 'Solo la administración puede aprobar importaciones.' }
   const d = entrada.safeParse(datos)
   if (!d.success) return { error: 'Los datos de la importación no son válidos. Vuelve a cargar el archivo.' }
-  const { supabase } = await usuarioActual()
+  const { supabase, usuario } = await usuarioActual()
+  const limite = await consumir(`importacion:usuario:${usuario.id}`, LIMITES.importacionUsuario)
+  if (!limite.permitido) return { error: mensajeLimite(limite) }
   const { data, error } = await supabase
     .rpc('aplicar_importacion_unidades', {
       p_copro: copropiedadId,

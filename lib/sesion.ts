@@ -25,10 +25,39 @@ export function sesionVencida(ultimaActividad: string | undefined, ahora = Date.
   return ahora - t > MINUTOS_INACTIVIDAD * 60_000
 }
 
-/** Solo permite volver a rutas internas después de iniciar sesión. */
+/**
+ * Solo permite volver a rutas internas después de iniciar sesión. Se rechazan los caracteres
+ * de control y la barra invertida en cualquier posición: el navegador descarta tabuladores y
+ * saltos de línea, así que «/\t/sitio.com» terminaría siendo «//sitio.com» (otro dominio).
+ */
 export function destinoSeguro(destino: string | null | undefined) {
-  if (!destino || !destino.startsWith('/') || destino.startsWith('//') || destino.startsWith('/\\')) return '/central'
-  return destino
+  if (!destino || destino.length > 2048 || !destino.startsWith('/') || /[\u0000-\u001f\u007f\\]/.test(destino)) return '/central'
+  try {
+    const base = 'https://ph-pro.invalid'
+    const u = new URL(destino, base)
+    if (u.origin !== base) return '/central'
+    return u.pathname + u.search + u.hash
+  } catch {
+    return '/central'
+  }
+}
+
+/**
+ * Duración máxima de una sesión, aunque haya actividad: al terminar la jornada se vuelve a
+ * ingresar con contraseña y código. Debe coincidir con «Time-box user sessions» en Supabase.
+ */
+export const HORAS_SESION_MAXIMA = 12
+
+/**
+ * Verdadero si la sesión empezó hace más de HORAS_SESION_MAXIMA. El inicio sale del claim
+ * «amr» del token de Supabase (momento en que se puso la contraseña, el código o el enlace).
+ * Sin «amr» legible la sesión no se corta aquí (lo hace Supabase con su propia configuración).
+ */
+export function sesionExcedeMaximo(amr: unknown, ahora = Date.now()) {
+  if (!Array.isArray(amr)) return false
+  const marcas = amr.map((m) => Number((m as { timestamp?: unknown })?.timestamp)).filter((t) => Number.isFinite(t) && t > 0)
+  if (!marcas.length) return false
+  return ahora - Math.min(...marcas) * 1000 > HORAS_SESION_MAXIMA * 3_600_000
 }
 
 /** Cookie que registra la última actividad (se fija al ingresar y se renueva en cada solicitud). */
