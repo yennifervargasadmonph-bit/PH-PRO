@@ -198,6 +198,97 @@ describe('bitácora', () => {
   })
 })
 
+describe('personas, vínculos y autorizaciones', () => {
+  const ids = { anaAlamos: '', personaSanta: '', personaAjena: '', unidadAlamos: '', unidadSanta: '', unidadAjena: '', politicaAlamos: '' }
+  const reg = (quien: string, c: string, nombre: string, doc: string | null = null) =>
+    como(db, quien, `select registrar_persona($1, $2, 'natural', $3, $4, $5) as id`, [c, nombre, doc ? 'CC' : null, doc, doc ? `${doc}@ejemplo.co` : null]).then(
+      (r) => r.rows[0].id as string,
+    )
+
+  beforeAll(async () => {
+    const unidad = (quien: string, c: string) =>
+      como(db, quien, `insert into unidades (copropiedad_id, numero, coeficiente) values ($1, 'P1', 1) returning id`, [c]).then((r) => r.rows[0].id as string)
+    ids.unidadAlamos = await unidad(u.admin, copro.alamos)
+    ids.unidadSanta = await unidad(u.admin, copro.santaElena)
+    ids.unidadAjena = await unidad(u.otraOrg, copro.ajena)
+    ids.anaAlamos = await reg(u.asistente, copro.alamos, 'Ana Álamos', '1010')
+    ids.personaSanta = await reg(u.admin, copro.santaElena, 'Persona Santa Elena', '2020')
+    ids.personaAjena = await reg(u.otraOrg, copro.ajena, 'Persona Ajena', '3030')
+    ids.politicaAlamos = (
+      await como(db, u.admin, `insert into politicas_tratamiento (copropiedad_id, version, vigente_desde, meses_conservacion, texto) values ($1, '1', '2026-01-01', 24, $2) returning id`, [
+        copro.alamos,
+        'Texto de la política de tratamiento de datos personales de prueba.',
+      ])
+    ).rows[0].id
+    await como(db, u.asistente, `insert into vinculos_unidad (copropiedad_id, unidad_id, persona_id, tipo, reside) values ($1, $2, $3, 'residente', true)`, [copro.alamos, ids.unidadAlamos, ids.anaAlamos])
+    await como(db, u.asistente, `insert into autorizaciones_datos (copropiedad_id, persona_id, politica_id, canal, otorgada_en, finalidades) values ($1, $2, $3, 'escrito', '2026-01-10', '{administracion}')`, [
+      copro.alamos,
+      ids.anaAlamos,
+      ids.politicaAlamos,
+    ])
+  })
+
+  it('otra organización no ve personas, datos, vínculos, políticas ni autorizaciones', async () => {
+    for (const t of ['personas', 'personas_datos', 'vinculos_unidad', 'politicas_tratamiento', 'autorizaciones_datos']) {
+      const r = await como(db, u.otraOrg, `select * from ${t} where copropiedad_id <> $1`, [copro.ajena])
+      expect(r.rowCount, t).toBe(0)
+    }
+    expect((await como(db, u.otraOrg, 'select nombre from personas')).rows.map((x) => x.nombre)).toEqual(['Persona Ajena'])
+  })
+
+  it('la auxiliar ve solo las personas de su copropiedad', async () => {
+    expect((await como(db, u.asistente, 'select nombre from personas')).rows.map((x) => x.nombre)).toEqual(['Ana Álamos'])
+    expect((await como(db, u.asistente, 'select persona_id from personas_datos')).rows.map((x) => x.persona_id)).toEqual([ids.anaAlamos])
+  })
+
+  it('nadie registra personas en una copropiedad ajena', async () => {
+    await expect(reg(u.otraOrg, copro.alamos, 'Intrusa')).rejects.toThrow(/permiso/)
+    await expect(reg(u.asistente, copro.santaElena, 'Intrusa')).rejects.toThrow(/permiso/)
+    await expect(como(db, u.otraOrg, `insert into personas (copropiedad_id, nombre) values ($1, 'Intrusa')`, [copro.alamos])).rejects.toThrow(/row-level security/)
+  })
+
+  it('un vínculo no mezcla unidad y persona de copropiedades distintas', async () => {
+    // Persona de Santa Elena en una unidad de Álamos (misma organización).
+    await expect(
+      como(db, u.admin, `insert into vinculos_unidad (copropiedad_id, unidad_id, persona_id, tipo) values ($1, $2, $3, 'residente')`, [copro.alamos, ids.unidadAlamos, ids.personaSanta]),
+    ).rejects.toThrow(/foreign key/)
+    // Persona ajena con la copropiedad de la unidad.
+    await expect(
+      como(db, u.otraOrg, `insert into vinculos_unidad (copropiedad_id, unidad_id, persona_id, tipo) values ($1, $2, $3, 'residente')`, [copro.ajena, ids.unidadAlamos, ids.personaAjena]),
+    ).rejects.toThrow(/foreign key/)
+  })
+
+  it('los datos de contacto no se cuelgan de una persona de otra copropiedad', async () => {
+    await expect(
+      como(db, u.otraOrg, `insert into personas_datos (persona_id, copropiedad_id, correo) values ($1, $2, 'x@ejemplo.co')`, [ids.anaAlamos, copro.ajena]),
+    ).rejects.toThrow(/foreign key|duplicate/)
+  })
+
+  it('una autorización no usa la política de otra copropiedad', async () => {
+    await expect(
+      como(db, u.admin, `insert into autorizaciones_datos (copropiedad_id, persona_id, politica_id, canal, otorgada_en, finalidades) values ($1, $2, $3, 'escrito', '2026-01-10', '{administracion}')`, [
+        copro.santaElena,
+        ids.personaSanta,
+        ids.politicaAlamos,
+      ]),
+    ).rejects.toThrow(/foreign key/)
+  })
+
+  it('nadie edita ni revoca en una copropiedad ajena', async () => {
+    expect((await como(db, u.otraOrg, `update personas set nombre = 'Cambiada' where id = $1`, [ids.anaAlamos])).rowCount).toBe(0)
+    expect((await como(db, u.otraOrg, `update vinculos_unidad set hasta = current_date where persona_id = $1`, [ids.anaAlamos])).rowCount).toBe(0)
+    expect((await como(db, u.otraOrg, `update autorizaciones_datos set revocada_en = current_date, revocacion_canal = 'correo' where persona_id = $1`, [ids.anaAlamos])).rowCount).toBe(0)
+    expect((await como(db, u.asistente, `update personas set nombre = 'Cambiada' where id = $1`, [ids.personaSanta])).rowCount).toBe(0)
+  })
+
+  it('el listado de portería y el expediente no cruzan copropiedades', async () => {
+    await expect(como(db, u.otraOrg, `select * from residentes_porteria($1)`, [copro.alamos])).rejects.toThrow(/permiso/)
+    await expect(como(db, u.asistente, `select * from residentes_porteria($1)`, [copro.santaElena])).rejects.toThrow(/permiso/)
+    await expect(como(db, u.otraOrg, `select * from historial_unidad($1)`, [ids.unidadAlamos])).rejects.toThrow(/permiso/)
+    expect((await como(db, u.asistente, `select nombre from residentes_porteria($1)`, [copro.alamos])).rows).toEqual([{ nombre: 'Ana Álamos' }])
+  })
+})
+
 describe('regla general', () => {
   it('toda tabla del esquema público tiene RLS activo', async () => {
     const r = await db.query(`

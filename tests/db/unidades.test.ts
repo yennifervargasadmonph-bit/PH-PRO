@@ -45,12 +45,15 @@ describe('permisos por rol', () => {
   it('cada rol recibe los permisos de la matriz', async () => {
     const r = await como(db, u.auxiliar, `select modulo, acciones from mis_permisos($1) order by modulo`, [copro.alamos])
     expect(r.rows).toEqual([
+      { modulo: 'datos_personales', acciones: ['V'] },
       { modulo: 'importar', acciones: ['V', 'C'] },
       { modulo: 'perfil', acciones: ['V'] },
+      { modulo: 'personas', acciones: ['V', 'C', 'E'] },
+      { modulo: 'porteria', acciones: ['V'] },
       { modulo: 'unidades', acciones: ['V', 'C', 'E'] },
     ])
-    const p = await como(db, u.porteria, `select modulo from mis_permisos($1)`, [copro.alamos])
-    expect(p.rows.map((x) => x.modulo)).toEqual(['unidades'])
+    const p = await como(db, u.porteria, `select modulo from mis_permisos($1) order by modulo`, [copro.alamos])
+    expect(p.rows.map((x) => x.modulo)).toEqual(['porteria', 'unidades'])
   })
 
   it('sin acceso a la copropiedad no hay permisos', async () => {
