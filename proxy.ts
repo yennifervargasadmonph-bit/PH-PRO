@@ -63,6 +63,10 @@ export async function proxy(request: NextRequest) {
     if (!enlace.permitido) return demasiadas(enlace)
   }
 
+  // Solo en desarrollo: vista previa del diseño con datos de ejemplo (app/vista-previa/*.dev.tsx,
+  // que no existe en producción). Permite revisar las pantallas sin Supabase.
+  if (process.env.NODE_ENV === 'development' && ruta.startsWith('/vista-previa')) return continuar()
+
   if (!url || !key) {
     if (ruta === '/sin-configurar') return continuar()
     return proteger(NextResponse.redirect(new URL('/sin-configurar', request.url)))

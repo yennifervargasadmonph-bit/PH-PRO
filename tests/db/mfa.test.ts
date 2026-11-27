@@ -96,7 +96,7 @@ describe('roles sensibles: verificación obligatoria', () => {
   it('con aal2 trabajan normalmente', async () => {
     for (const quien of SENSIBLES) expect(await verCopropiedades(u[quien], 'aal2'), quien).toEqual(['Edificio Álamos 23'])
     expect((await como(db, u.administradora, `select name from storage.objects`)).rows).toEqual([{ name: `${copro}/logo.png` }])
-    expect((await como(db, u.contador, `select modulo from mis_permisos($1) order by modulo`, [copro])).rows.map((x) => x.modulo)).toEqual(['perfil', 'unidades'])
+    expect((await como(db, u.contador, `select modulo from mis_permisos($1) order by modulo`, [copro])).rows.map((x) => x.modulo)).toEqual(['perfil', 'personas', 'unidades'])
   })
 
   it('la aplicación sabe a quién llevar a activar la verificación', async () => {
@@ -128,7 +128,7 @@ describe('quien activó un factor', () => {
 describe('personas sin factor y sin roles sensibles', () => {
   it('no se ven afectadas', async () => {
     expect(await verCopropiedades(u.consejo, 'aal1')).toEqual(['Edificio Álamos 23'])
-    expect((await comoAal1(db, u.consejo, 'select modulo from mis_permisos($1) order by modulo', [copro])).rows.map((x) => x.modulo)).toEqual(['perfil', 'unidades'])
+    expect((await comoAal1(db, u.consejo, 'select modulo from mis_permisos($1) order by modulo', [copro])).rows.map((x) => x.modulo)).toEqual(['perfil', 'personas', 'unidades'])
   })
 
   it('al crear su organización pasa a ser propietaria y desde ahí se le exige', async () => {

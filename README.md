@@ -3,7 +3,7 @@
 Administración de propiedad horizontal en Colombia (Ley 675 de 2001).
 Regla de la casa: **la IA propone, la administración decide**.
 
-## Qué hay en este momento (Sprints 1 y 2)
+## Qué hay en este momento (Sprints 1, 2 y 3)
 
 - Ingreso con correo y contraseña, recuperación por correo y verificación en dos pasos con aplicación autenticadora.
 - Cierre de sesión tras 30 minutos sin actividad.
@@ -23,6 +23,45 @@ Regla de la casa: **la IA propone, la administración decide**.
   (`components/membrete.tsx`: `<Membrete/>` y `<PieInstitucional/>`; lo que falte sale como «Dato faltante»).
   Los logos van al bucket privado `marcas` de Supabase Storage (`<copropiedad_id>/logo.<png|jpg|webp>`, máx. 2 MB;
   solo PNG, JPG o WEBP, revisando los primeros bytes del archivo; nunca SVG).
+
+### Sprint 3: personas, autorización de datos, expediente y portería
+
+- **Personas** (`/c/<id>/personas`): propietarios, residentes, arrendatarios, apoderados y autorizados se
+  registran una vez por copropiedad (el documento no se repite) y se vinculan a una o varias unidades con
+  fecha de inicio y de fin. Cada unidad tiene un solo titular vigente (un propietario). Un vínculo no cambia
+  de unidad, persona ni tipo: se termina y queda en el historial. Nada se borra.
+- **Autorización de datos (Ley 1581 de 2012)**: la administración publica versiones de la política de
+  tratamiento (`/c/<id>/personas/politica`, inmutables, con plazo de conservación en meses). Por persona se
+  registra la autorización con fecha, canal, versión, finalidades y quién la registró; la revocación se
+  registra una vez (fecha, canal, quién) y no se deshace. Al terminar el último vínculo la base calcula
+  hasta cuándo se conservan los datos (`personas.conservar_hasta`). La supresión al vencer el plazo es
+  manual por ahora.
+- **Datos personales solo para quien los necesita**: documento, correo, celular y teléfono viven en
+  `personas_datos`, que solo ven los roles con `datos_personales V` (administradora y auxiliar). Consejo,
+  contador y revisor fiscal ven nombres y vínculos. En la bitácora esos campos y el nombre quedan como
+  `[dato personal]`.
+- **Expediente de unidad** (`/c/<id>/unidades/<unidad>`): coeficiente, área, titular, personas actuales y
+  anteriores, autorizaciones e historial (función `historial_unidad`, que lee la bitácora ya enmascarada).
+  Cartera y pagos llegan en el sprint 13.
+- **Portería** (`/c/<id>/porteria`): no lee las tablas de personas. Usa `residentes_porteria()` (security
+  definer), que entrega solo unidad, nombre y tipo de vínculo de residentes y autorizados vigentes; nunca
+  documento, correo ni teléfono (Fase 0: «portería ve nombre y unidad»).
+- Pruebas: `tests/db/personas.test.ts` y casos nuevos en `tests/db/aislamiento.test.ts`.
+
+### Diseño «Verde profundo» en calma
+
+- Tailwind CSS 4 (`app/globals.css`, tokens en `@theme`), íconos Lucide y la letra Inter servida desde la
+  propia aplicación (`@fontsource/inter`, la CSP no cambia).
+- Menú lateral verde bosque plegable; en el celular, encabezado de una fila (60 px), barra inferior blanca
+  y cifras en 2 × 2. Componentes en `components/ui` (cabecera con una acción principal y «⋯ Más», filas con
+  punto rojo o ámbar que abren un panel lateral, fila «Agregar», estados vacíos) y `components/marco`.
+- Escala: meta 12, cuerpo 14 (15 en celular), títulos 16/600, secciones 20/600, página 28/700 (24 en
+  celular); solo pesos 400/600/700.
+- Logo oficial sin cambios en `public/logo-ph-pro.png` y `public/icono-ph-pro.png`.
+- **Vista previa solo en desarrollo**: `npm run dev` y abre `/vista-previa/resumen` (también `unidades`,
+  `personas`, `persona`, `expediente`, `porteria`, `politica`, `central`) para revisar el diseño con datos de
+  ejemplo sin Supabase. Esas páginas se llaman `page.dev.tsx` y en producción no se compilan
+  (`pageExtensions` en `next.config.ts`).
 
 ## Seguridad
 
@@ -138,6 +177,9 @@ El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador;
   en cada PR, en `main` y cada lunes, con permisos mínimos (`contents: read`, `security-events: write`).
 - En GitHub > Settings > Code security mantén activos **Secret scanning** y **Push protection** (hoy lo
   están) y activa **Dependabot alerts** y **Dependabot security updates**.
+- 27/11/2026: `next` y `eslint-config-next` 16.4.6 corrigen siete avisos moderados de `next` ≤ 16.4.4
+  (entre ellos GHSA-mfr8-8qww-v76h y GHSA-pc58-hwjq-p385); `npm audit fix` resolvió los avisos de `minimatch`
+  (solo desarrollo). `npm audit`: 0 vulnerabilidades.
 - 27/10/2026: `next` 16.4.3 y `zod` 4.6.7 corrigen GHSA-2464-fhr4-w9xw y GHSA-673q-mjm6-r5xr (críticas),
   GHSA-p3m5-59mp-jv5r y GHSA-mrhx-c7xc-m3w5. `npm audit` (producción y desarrollo): 0 vulnerabilidades.
 - Antes (14/10/2026): `npm audit` reportaba 5 «high» en la cadena solo de desarrollo `eslint-config-next` → `@next/eslint-plugin-next` → `fast-glob` → `micromatch` →
@@ -167,6 +209,20 @@ El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador;
 5. `npm install` y `npm run dev`. La aplicación queda en http://localhost:3000.
 
 La primera persona que ingresa crea su organización; quien la crea queda como propietaria.
+
+### Publicación en Vercel
+
+- Proyecto `ph-pro` en Vercel (plan Hobby), dominio `https://ph-pro-eosin.vercel.app`. Mientras las solicitudes
+  #1 a #4 no se fusionen, la rama de producción es `sprint-3-personas-diseno`; cada push a esa rama publica.
+- Variables (Production y Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y
+  `NEXT_PUBLIC_SITE_URL` (la dirección pública, sin barra final). Nunca la llave `service_role`.
+- En Supabase > Authentication > URL Configuration: Site URL = esa dirección y Redirect URL
+  `https://ph-pro-eosin.vercel.app/**`.
+- Authentication > Emails: las plantillas **Reset password** e **Invite user** deben apuntar a `/auth/confirmar`
+  con `token_hash` (así funcionan aunque el correo se abra en otro navegador y aunque se envíen desde el panel):
+  - Reset password: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=recovery&siguiente=/nueva-clave`
+  - Invite user: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=invite&siguiente=/nueva-clave`
+  Con la plantilla por defecto los tokens llegan en `#access_token=…`; `/ingresar` los borra y pide un enlace nuevo.
 
 ## Pruebas
 
