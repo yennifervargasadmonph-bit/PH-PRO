@@ -210,6 +210,15 @@ El mínimo de 12 caracteres de `/nueva-clave` es solo una ayuda en el navegador;
 
 La primera persona que ingresa crea su organización; quien la crea queda como propietaria.
 
+### Publicación en Vercel
+
+- Proyecto `ph-pro` en Vercel (plan Hobby), dominio `https://ph-pro-eosin.vercel.app`. Mientras las solicitudes
+  #1 a #4 no se fusionen, la rama de producción es `sprint-3-personas-diseno`; cada push a esa rama publica.
+- Variables (Production y Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y
+  `NEXT_PUBLIC_SITE_URL` (la dirección pública, sin barra final). Nunca la llave `service_role`.
+- En Supabase > Authentication > URL Configuration: Site URL = esa dirección y Redirect URL
+  `https://ph-pro-eosin.vercel.app/auth/confirmar`.
+
 ## Pruebas
 
 ```bash
