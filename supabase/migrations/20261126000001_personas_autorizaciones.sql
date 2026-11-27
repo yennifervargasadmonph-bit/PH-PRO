@@ -571,3 +571,7 @@ create trigger bitacora_politicas after insert on public.politicas_tratamiento
   for each row execute function app.registrar_bitacora();
 create trigger bitacora_autorizaciones after insert or update on public.autorizaciones_datos
   for each row execute function app.registrar_bitacora();
+
+-- Supabase pide RLS en toda tabla nueva; app.bitacora_campos solo la leen funciones security definer
+-- (dueño de la tabla), así que activarla sin políticas cierra el acceso directo sin afectar la bitácora.
+alter table app.bitacora_campos enable row level security;
