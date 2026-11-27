@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
 import { misPermisos, puede, usuarioActual } from '@/lib/datos'
+import { Cabecera } from '@/components/ui/cabecera'
+import { Fila, Filas } from '@/components/ui/filas'
 import type { UnidadExistente } from '@/lib/importacion/unidades'
 import { Importador } from './importador'
 
@@ -24,24 +26,25 @@ export default async function Importar({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <div className="cabecera">
-        <div>
-          <h1>Importar unidades</h1>
-          <p className="tenue">Si la unidad ya existe (misma torre y número) se actualiza; si no, se crea. Nunca se duplica.</p>
-        </div>
-      </div>
+      <Cabecera
+        titulo="Importar unidades"
+        meta="Si la unidad ya existe (misma torre y número) se actualiza; si no, se crea. Nunca se duplica."
+        mas={[{ href: `/c/${id}/unidades`, texto: 'Volver a unidades' }]}
+      />
       <Importador copropiedadId={id} existentes={existentes} puedeAprobar={puede(permisos, 'importar', 'A')} />
       {(historial?.length ?? 0) > 0 && (
-        <section className="panel seccion">
-          <h2>Importaciones anteriores</h2>
-          <ul className="lista">
+        <section className="seccion">
+          <div className="seccion-cabeza"><h2>Importaciones anteriores</h2></div>
+          <Filas etiqueta="Importaciones anteriores">
             {(historial as Registro[]).map((h) => (
-              <li key={h.id}>
-                <span><strong>{h.archivo}</strong> · {h.nuevas} nuevas, {h.actualizadas} actualizadas, {h.sin_cambios} sin cambios, {h.rechazadas} rechazadas</span>
-                <span className="tenue">{new Date(h.creado_en).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' })}</span>
-              </li>
+              <Fila
+                key={h.id}
+                titulo={h.archivo}
+                meta={`${new Date(h.creado_en).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Bogota' })} · ${h.nuevas} nuevas, ${h.actualizadas} actualizadas, ${h.sin_cambios} sin cambios, ${h.rechazadas} rechazadas`}
+                punto={h.rechazadas > 0 ? 'ambar' : null}
+              />
             ))}
-          </ul>
+          </Filas>
         </section>
       )}
     </>

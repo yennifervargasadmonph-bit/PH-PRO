@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Cabecera } from '@/components/ui/cabecera'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 
 type Factor = { id: string; friendly_name?: string; status: string }
@@ -54,7 +55,7 @@ export function PanelSeguridad({ obligatoria }: { obligatoria: boolean }) {
 
   return (
     <>
-      <div className="cabecera"><div><h1>Seguridad</h1><p className="tenue">Protege tu cuenta con verificación en dos pasos.</p></div></div>
+      <Cabecera titulo="Seguridad" meta="Protege tu cuenta con verificación en dos pasos." mas={[{ href: '/nueva-clave', texto: 'Cambiar contraseña' }]} />
       <section className="panel" style={{ maxWidth: 620 }}>
         <h2>Verificación en dos pasos</h2>
         {obligatoria && !activa && (

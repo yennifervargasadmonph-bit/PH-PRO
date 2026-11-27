@@ -9,9 +9,9 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Administración de propiedad horizontal en Colombia',
     start_url: '/central',
     display: 'standalone',
-    background_color: '#f1f3f2',
-    theme_color: '#0c3b26',
+    background_color: '#f2f4f3',
+    theme_color: '#0f3d2e',
     lang: 'es-CO',
-    icons: [{ src: '/icono-ph-pro.png', sizes: '192x192', type: 'image/png' }],
+    icons: [{ src: '/icono-ph-pro.png', sizes: '512x512', type: 'image/png' }],
   }
 }

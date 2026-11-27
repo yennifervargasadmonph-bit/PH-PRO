@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { Cabecera } from '@/components/ui/cabecera'
 import { crearClienteNavegador } from '@/lib/supabase/client'
 
 const MINIMO = 12
@@ -24,14 +25,16 @@ export default function NuevaClave() {
   }
 
   return (
-    <section className="panel" style={{ maxWidth: 480 }}>
-      <h1>Nueva contraseña</h1>
+    <>
+      <Cabecera titulo="Nueva contraseña" meta={`Mínimo ${MINIMO} caracteres.`} />
+      <section className="panel" style={{ maxWidth: 480 }}>
       <form className="campos" onSubmit={guardar}>
         <label>Contraseña nueva <small>(mínimo {MINIMO} caracteres)</small><input name="clave" type="password" autoComplete="new-password" required /></label>
         <label>Confírmala<input name="confirmacion" type="password" autoComplete="new-password" required /></label>
         {error && <p className="aviso error" role="alert">{error}</p>}
         <div><button className="boton" disabled={enviando}>{enviando ? 'Guardando…' : 'Guardar'}</button></div>
       </form>
-    </section>
+      </section>
+    </>
   )
 }
