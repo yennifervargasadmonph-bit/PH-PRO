@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { AvisoEnlaceAntiguo } from './enlace-antiguo'
 import { FormularioIngreso } from './formulario'
 
 export const metadata = { title: 'Ingresar' }
@@ -20,6 +21,7 @@ export default async function Ingresar({ searchParams }: { searchParams: Promise
         {motivo === 'enlace' && (
           <p className="aviso info" style={{ marginBottom: 14 }}>El enlace no es válido o ya venció. Pide uno nuevo.</p>
         )}
+        <AvisoEnlaceAntiguo />
         <FormularioIngreso siguiente={siguiente} />
       </div>
     </main>

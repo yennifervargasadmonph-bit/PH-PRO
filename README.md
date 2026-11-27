@@ -217,7 +217,12 @@ La primera persona que ingresa crea su organización; quien la crea queda como p
 - Variables (Production y Preview): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` y
   `NEXT_PUBLIC_SITE_URL` (la dirección pública, sin barra final). Nunca la llave `service_role`.
 - En Supabase > Authentication > URL Configuration: Site URL = esa dirección y Redirect URL
-  `https://ph-pro-eosin.vercel.app/auth/confirmar`.
+  `https://ph-pro-eosin.vercel.app/**`.
+- Authentication > Emails: las plantillas **Reset password** e **Invite user** deben apuntar a `/auth/confirmar`
+  con `token_hash` (así funcionan aunque el correo se abra en otro navegador y aunque se envíen desde el panel):
+  - Reset password: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=recovery&siguiente=/nueva-clave`
+  - Invite user: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=invite&siguiente=/nueva-clave`
+  Con la plantilla por defecto los tokens llegan en `#access_token=…`; `/ingresar` los borra y pide un enlace nuevo.
 
 ## Pruebas
 
